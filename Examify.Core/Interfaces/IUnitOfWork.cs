@@ -9,5 +9,11 @@ public interface IUnitOfWork : IDisposable
     IRepository<User> Users { get; }
     IRepository<Submission> Submissions { get; }
     IRepository<Wallet> Wallets { get; }
+    IRepository<ReadingQuestion> ReadingQuestions { get; }  // ✅ THÊM DÒNG NÀY
+    IRepository<ListeningQuestion> ListeningQuestions { get; }
+    IRepository<WritingQuestion> WritingQuestions { get; }
+    IRepository<SpeakingQuestion> SpeakingQuestions { get; }
+    IRepository<Transaction> Transactions { get; }
+
     Task<int> SaveChangesAsync();
 }

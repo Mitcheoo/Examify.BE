@@ -1,34 +1,35 @@
 ﻿using Examify.Infrastructure.Data;
+using Examify.Infrastructure;
+using Examify.Application;
 using Microsoft.EntityFrameworkCore;
+using MediatR;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
- 
+builder.Services.AddSwaggerGen();
 
-// Đăng ký DbContext
+// Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Custom services
+builder.Services.AddInfrastructure();
+builder.Services.AddApplication();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

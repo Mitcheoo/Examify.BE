@@ -1,13 +1,17 @@
-﻿/*using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// Examify.Application/DependencyInjection.cs
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
-namespace Examify.Application
+namespace Examify.Application;
+
+public static class DependencyInjection
 {
-    internal class DependencyInjection
+    public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddAutoMapper(Assembly.GetExecutingAssembly());
+        services.AddMediatR(cfg =>
+            cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+
+        return services;
     }
 }
-*/
