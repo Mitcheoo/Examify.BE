@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Examify.Core", "Examify.Cor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Examify.Infrastructure", "Examify.Infrastructure\Examify.Infrastructure.csproj", "{F66423EE-2A89-4109-AACC-095B224A289D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Examify.Application", "Examify.Application\Examify.Application.csproj", "{52C90AA2-C6DF-43ED-8BA3-F03E6CD9E1E4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{F66423EE-2A89-4109-AACC-095B224A289D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F66423EE-2A89-4109-AACC-095B224A289D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F66423EE-2A89-4109-AACC-095B224A289D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52C90AA2-C6DF-43ED-8BA3-F03E6CD9E1E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52C90AA2-C6DF-43ED-8BA3-F03E6CD9E1E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52C90AA2-C6DF-43ED-8BA3-F03E6CD9E1E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52C90AA2-C6DF-43ED-8BA3-F03E6CD9E1E4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
