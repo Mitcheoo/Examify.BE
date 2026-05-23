@@ -1,4 +1,6 @@
-/*using Microsoft.Extensions.DependencyInjection;
+using Examify.Core.Interfaces;
+using Examify.Infrastructure.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Examify.Infrastructure
 {
@@ -15,4 +17,4 @@ namespace Examify.Infrastructure
             return services;
         }
     }
-}*/
+}

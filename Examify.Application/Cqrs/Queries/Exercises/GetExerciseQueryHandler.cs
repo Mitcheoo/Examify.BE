@@ -21,9 +21,7 @@ public class GetExerciseQueryHandler : IRequestHandler<GetExerciseQuery, Exercis
     public async Task<ExerciseDto> Handle(GetExerciseQuery request, CancellationToken cancellationToken)
     {
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.Id);
-        if (exercise == null)
-            throw new NotFoundException("Exercise not found");
-
+     
         return _mapper.Map<ExerciseDto>(exercise);
     }
 }
