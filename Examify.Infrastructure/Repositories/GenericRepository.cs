@@ -1,4 +1,4 @@
-// Examify.Infrastructure/Repositories/GenericRepository.cs
+﻿// Examify.Infrastructure/Repositories/GenericRepository.cs
 using Microsoft.EntityFrameworkCore;
 using Examify.Core.Interfaces;
 using Examify.Infrastructure.Data;
