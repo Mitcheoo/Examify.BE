@@ -13,7 +13,7 @@ namespace Examify.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]  // ✅ Yêu cầu đăng nhập để dùng API
+//[Authorize]  // ✅ Yêu cầu đăng nhập để dùng API
 public class ReadingController : ControllerBase
 {
     private readonly IMediator _mediator;
