@@ -6,4 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="MediatR" Version="12.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Examify.Core\Examify.Core.csproj" />
+    <ProjectReference Include="..\Examify.Infrastructure\Examify.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>
