@@ -1,5 +1,4 @@
-﻿// Examify.API/Controllers/WritingController.cs
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using Examify.Application.Cqrs.Commands.Writing;

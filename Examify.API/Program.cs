@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using YourApp.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,7 +63,10 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+builder.Services.Configure<PayPalOptions>(
+    builder.Configuration.GetSection("PayPal"));
 
+builder.Services.AddHttpClient();
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
