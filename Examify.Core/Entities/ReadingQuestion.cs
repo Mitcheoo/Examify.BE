@@ -11,7 +11,7 @@ public class ReadingQuestion : BaseEntity
     public string OptionsJson { get; set; } = string.Empty;
     public string CorrectAnswer { get; set; } = string.Empty;
     public string? Explanation { get; set; }
-
+    
     // Navigation
     public virtual Exercise Exercise { get; set; } = null!;
 }

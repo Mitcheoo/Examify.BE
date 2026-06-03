@@ -1,4 +1,4 @@
-// Examify.Infrastructure/Services/TokenService.cs
+﻿// Examify.Infrastructure/Services/TokenService.cs
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -25,10 +25,10 @@ public class TokenService : ITokenService
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-            new Claim("FullName", user.FullName)
+            new Claim("FullName", user.FullName ?? string.Empty)
         };
 
-        // Th�m roles v�o claims
+        // Thêm roles vào claims
         foreach (var role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
@@ -39,14 +39,24 @@ public class TokenService : ITokenService
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // Thời gian hết hạn: 24 giờ
+        var expires = DateTime.UtcNow.AddHours(24);
+        var expiresIn = 86400; // 24 giờ * 3600 giây
+
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"] ?? "Examify",
             audience: _configuration["Jwt:Audience"] ?? "ExamifyClient",
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(24),
+            expires: expires,
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    // Thêm method này để lấy thời gian hết hạn (giây)
+    public int GetExpiresIn()
+    {
+        return 86400; // 24 giờ
     }
 }
