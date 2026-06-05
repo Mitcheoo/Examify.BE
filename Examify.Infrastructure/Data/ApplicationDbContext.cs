@@ -21,6 +21,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<WritingQuestion> WritingQuestions { get; set; }
     public DbSet<SpeakingQuestion> SpeakingQuestions { get; set; }
     public DbSet<Submission> Submissions { get; set; }
+    public DbSet<Part> Parts { get; set; }
     public DbSet<SubmissionDetail> SubmissionDetails { get; set; }
     public DbSet<Wallet> Wallets { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
@@ -38,6 +39,14 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
         {
             entity.ToTable("Exercises");
             entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+        });
+        builder.Entity<Part>(entity =>
+        {
+            entity.ToTable("Parts");
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Exercise)
+                  .WithMany(e => e.Parts)
+                  .HasForeignKey(e => e.ExerciseId);
         });
     }
 }
