@@ -6,7 +6,7 @@ using Examify.Infrastructure.Data;
 using Examify.Infrastructure.External;
 using Examify.Infrastructure.Seed;
 using Examify.Infrastructure.Services;
-using MediatR;  // ✅ THÊM DÒNG NÀY
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -83,10 +83,10 @@ builder.Services.AddInfrastructure();
 // Application (MediatR, AutoMapper)
 builder.Services.AddApplication();
 
-// ✅ THÊM - HttpContextAccessor (cho ICurrentUserService)
+// HttpContextAccessor (cho ICurrentUserService)
 builder.Services.AddHttpContextAccessor();
 
-// ✅ THÊM - Memory Cache (tùy chọn)
+// Memory Cache
 builder.Services.AddMemoryCache();
 
 // Identity
@@ -125,7 +125,8 @@ builder.Services.AddAuthentication(options =>
 
 // Token Service
 builder.Services.AddScoped<ITokenService, TokenService>();
-// call external API
+
+// Call external API
 builder.Services.AddHttpClient<IDeepSeekApiClient, DeepSeekApiClient>();
 builder.Services.AddScoped<IAIGradingService, AIGradingService>();
 
@@ -147,9 +148,12 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseCors("AllowAngularApp");
+
+// ✅ QUAN TRỌNG: THỨ TỰ MIDDLEWARE ĐÚNG - CORS PHẢI ĐẦU TIÊN
+app.UseCors("AllowAngularApp");     // 1. CORS - ĐẦU TIÊN
+app.UseAuthentication();            // 2. Authentication
+app.UseAuthorization();             // 3. Authorization
+
 app.MapControllers();
 
 app.Run();
