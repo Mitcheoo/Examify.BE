@@ -3,8 +3,10 @@ using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Infrastructure;
 using Examify.Infrastructure.Data;
+using Examify.Infrastructure.External;
 using Examify.Infrastructure.Seed;
 using Examify.Infrastructure.Services;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,16 +20,20 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
     {
-        policy.WithOrigins("http://localhost:4200") // Angular dev server
+        policy.WithOrigins("http://localhost:4200")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
     });
 });
+
+// Swagger
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -37,7 +43,6 @@ builder.Services.AddSwaggerGen(options =>
         Description = "API for Examify - VSTEP English Proficiency Test"
     });
 
-    // Add JWT-Authentication in Swagger UI
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -63,10 +68,11 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
-builder.Services.Configure<PayPalOptions>(
-    builder.Configuration.GetSection("PayPal"));
 
+// PayPal
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayPal"));
 builder.Services.AddHttpClient();
+
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -76,6 +82,12 @@ builder.Services.AddInfrastructure();
 
 // Application (MediatR, AutoMapper)
 builder.Services.AddApplication();
+
+// HttpContextAccessor (cho ICurrentUserService)
+builder.Services.AddHttpContextAccessor();
+
+// Memory Cache
+builder.Services.AddMemoryCache();
 
 // Identity
 builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
@@ -89,7 +101,7 @@ builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
- 
+
 // JWT Authentication
 builder.Services.AddAuthentication(options =>
 {
@@ -114,6 +126,10 @@ builder.Services.AddAuthentication(options =>
 // Token Service
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+// Call external API
+builder.Services.AddHttpClient<IDeepSeekApiClient, DeepSeekApiClient>();
+builder.Services.AddScoped<IAIGradingService, AIGradingService>();
+
 var app = builder.Build();
 
 // Configure pipeline
@@ -123,7 +139,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ✅ Khởi tạo database và roles
+// Khởi tạo database và roles
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -132,10 +148,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
 
-app.UseCors("AllowAngularApp");
+// ✅ QUAN TRỌNG: THỨ TỰ MIDDLEWARE ĐÚNG - CORS PHẢI ĐẦU TIÊN
+app.UseCors("AllowAngularApp");     // 1. CORS - ĐẦU TIÊN
+app.UseAuthentication();            // 2. Authentication
+app.UseAuthorization();             // 3. Authorization
 
 app.MapControllers();
 

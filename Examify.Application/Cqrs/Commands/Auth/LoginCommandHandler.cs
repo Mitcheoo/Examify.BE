@@ -32,12 +32,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDt
             user = await _userManager.FindByEmailAsync(request.UserName);
         }
 
-        
+        if (user == null)
+            throw new Exception("Invalid username or password");
 
         // Kiểm tra mật khẩu
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
 
-         
+        if (!result.Succeeded)
+            throw new Exception("Invalid username or password");
 
         // Lấy roles của user
         var roles = await _userManager.GetRolesAsync(user);
@@ -51,8 +53,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDt
             UserId = user.Id,
             UserName = user.UserName ?? string.Empty,
             Email = user.Email ?? string.Empty,
-            FullName = user.FullName,
-            Roles = roles.ToList()
+            FullName = user.FullName ?? string.Empty,
+            Roles = roles.ToList(),
+            ExpiresIn = 86400  // ← THÊM DÒNG NÀY (86400 giây = 24 giờ)
         };
     }
 }

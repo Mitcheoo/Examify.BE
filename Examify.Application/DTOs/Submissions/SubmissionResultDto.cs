@@ -24,4 +24,7 @@ public class SubmissionDetailDto
     public string CorrectAnswer { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
     public string? Explanation { get; set; }
+    // Dành cho SpeakingQuestion
+    public double? AiScore { get; set; }
+    public string? AiFeedback { get; set; }
 }

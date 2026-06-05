@@ -1,5 +1,5 @@
 // Examify.Core/Enums/DifficultyLevel.cs
-namespace Examify.Core.Enums;
+namespace Examify.Core.Entities;
 
 public enum DifficultyLevel
 {
