@@ -13,17 +13,27 @@ public class AutoMapperProfile : Profile
         // ========== MAPPING CHO EXERCISE ==========
         CreateMap<Exercise, ExerciseDto>()
             .ForMember(dest => dest.SkillName,
-                opt => opt.MapFrom(src => GetSkillName(src.Skill)))  // ✅ Dùng method riêng
+                opt => opt.MapFrom(src => GetSkillName(src.Skill)))
             .ForMember(dest => dest.Parts, opt => opt.Ignore())
             .ForMember(dest => dest.ReadingQuestions, opt => opt.Ignore())
             .ForMember(dest => dest.ListeningQuestions, opt => opt.Ignore())
             .ForMember(dest => dest.WritingQuestions, opt => opt.Ignore())
-            .ForMember(dest => dest.SpeakingQuestions, opt => opt.Ignore());
+            .ForMember(dest => dest.SpeakingQuestions, opt => opt.Ignore())
+            // ✅ THÊM MAPPING CHO 4 PROPERTY MỚI
+            .ForMember(dest => dest.ReadingExerciseId, opt => opt.MapFrom(src => src.ReadingExerciseId))
+            .ForMember(dest => dest.ListeningExerciseId, opt => opt.MapFrom(src => src.ListeningExerciseId))
+            .ForMember(dest => dest.WritingExerciseId, opt => opt.MapFrom(src => src.WritingExerciseId))
+            .ForMember(dest => dest.SpeakingExerciseId, opt => opt.MapFrom(src => src.SpeakingExerciseId));
 
         // Mapping chi tiết cho Exercise
         CreateMap<Exercise, ExerciseDetailDto>()
             .ForMember(dest => dest.SkillName,
-                opt => opt.MapFrom(src => GetSkillName(src.Skill)));
+                opt => opt.MapFrom(src => GetSkillName(src.Skill)))
+            // ✅ THÊM MAPPING CHO 4 PROPERTY
+            .ForMember(dest => dest.ReadingExerciseId, opt => opt.MapFrom(src => src.ReadingExerciseId))
+            .ForMember(dest => dest.ListeningExerciseId, opt => opt.MapFrom(src => src.ListeningExerciseId))
+            .ForMember(dest => dest.WritingExerciseId, opt => opt.MapFrom(src => src.WritingExerciseId))
+            .ForMember(dest => dest.SpeakingExerciseId, opt => opt.MapFrom(src => src.SpeakingExerciseId));
 
         // ========== MAPPING CHO CÂU HỎI ==========
         CreateMap<ReadingQuestion, ReadingQuestionDto>();
@@ -53,6 +63,7 @@ public class AutoMapperProfile : Profile
             1 => "Listening",
             2 => "Writing",
             3 => "Speaking",
+            4 => "Full Test",  
             _ => "Unknown"
         };
     }
