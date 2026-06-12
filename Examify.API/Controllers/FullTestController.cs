@@ -1,9 +1,10 @@
 ﻿// Examify.API/Controllers/FullTestController.cs
+using Examify.Application.Cqrs.Commands.FullTest;
+using Examify.Application.Cqrs.Queries.FullTest;
+using Examify.Application.DTOs.FullTest;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using Examify.Application.Cqrs.Commands.FullTest;
-using Examify.Application.DTOs.FullTest;
 using System.Security.Claims;
 
 namespace Examify.API.Controllers;
@@ -49,7 +50,20 @@ public class FullTestController : ControllerBase
         var result = await _mediator.Send(command);
         return Ok(new { success = result });
     }
+    // Examify.API/Controllers/FullTestController.cs
+    // Thêm action này vào controller hiện có
 
+    /// <summary>
+    /// Lấy trạng thái mở khóa các kỹ năng của Full Test
+    /// </summary>
+    [HttpGet("{id}/status")]
+    public async Task<ActionResult<FullTestStatusDto>> GetFullTestStatus(Guid id)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var query = new GetFullTestStatusQuery(id, userId);
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
     /// <summary>
     /// Nộp toàn bộ bài thi và nhận kết quả
     /// </summary>
