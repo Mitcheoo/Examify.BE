@@ -148,7 +148,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
-
+app.UseStaticFiles();
 // ✅ QUAN TRỌNG: THỨ TỰ MIDDLEWARE ĐÚNG - CORS PHẢI ĐẦU TIÊN
 app.UseCors("AllowAngularApp");     // 1. CORS - ĐẦU TIÊN
 app.UseAuthentication();            // 2. Authentication
