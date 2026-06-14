@@ -4,10 +4,11 @@ using Microsoft.AspNetCore.Identity;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Application.DTOs.Auth;
+using Examify.Application.DTOs;
 
 namespace Examify.Application.Cqrs.Commands.Auth;
 
-public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDto>
+public class LoginCommandHandler : IRequestHandler<LoginCommand, ResponseDto>
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
@@ -23,9 +24,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDt
         _tokenService = tokenService;
     }
 
-    public async Task<LoginResponseDto> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async Task<ResponseDto> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        // Tìm user theo username hoặc email
         var user = await _userManager.FindByNameAsync(request.UserName);
         if (user == null)
         {
@@ -33,21 +33,31 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDt
         }
 
         if (user == null)
-            throw new Exception("Invalid username or password");
+        {
+            return new ResponseDto
+            {
+                Success = false,
+                Message = "Invalid username or password",
+                Errors = new[] { "User not found" }
+            };
+        }
 
-        // Kiểm tra mật khẩu
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
 
         if (!result.Succeeded)
-            throw new Exception("Invalid username or password");
+        {
+            return new ResponseDto
+            {
+                Success = false,
+                Message = "Invalid username or password",
+                Errors = new[] { "Invalid credentials" }
+            };
+        }
 
-        // Lấy roles của user
         var roles = await _userManager.GetRolesAsync(user);
-
-        // Tạo token
         var token = _tokenService.GenerateToken(user, roles.ToList());
 
-        return new LoginResponseDto
+        var loginResponse = new LoginResponseDto
         {
             Token = token,
             UserId = user.Id,
@@ -55,7 +65,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponseDt
             Email = user.Email ?? string.Empty,
             FullName = user.FullName ?? string.Empty,
             Roles = roles.ToList(),
-            ExpiresIn = 86400  // ← THÊM DÒNG NÀY (86400 giây = 24 giờ)
+            ExpiresIn = 86400  
+        };
+
+        return new ResponseDto
+        {
+            Success = true,
+            Message = "Login successful",
+            Data = loginResponse
         };
     }
 }
