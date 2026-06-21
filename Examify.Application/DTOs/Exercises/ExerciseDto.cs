@@ -16,6 +16,10 @@ public class ExerciseDto
     public int TimeLimitSeconds { get; set; }
     public int AttemptCount { get; set; }
     public bool IsFullTest { get; set; }
+
+
+    public string? Source { get; set; }
+
     public List<PartDto> Parts { get; set; } = new();
     public List<ReadingQuestionDto> ReadingQuestions { get; set; } = new();
     public List<ListeningQuestionDto> ListeningQuestions { get; set; } = new();

@@ -12,7 +12,7 @@ namespace Examify.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FullTestController : ControllerBase
+public sealed class FullTestController : ControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -21,9 +21,6 @@ public class FullTestController : ControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Bắt đầu bài thi thử full test (4 kỹ năng)
-    /// </summary>
     [HttpPost("start")]
     public async Task<ActionResult<StartFullTestResponse>> Start()
     {
@@ -32,30 +29,6 @@ public class FullTestController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lưu kết quả từng phần (Reading, Listening, Writing, Speaking)
-    /// </summary>
-    [HttpPost("save-part")]
-    public async Task<IActionResult> SavePart([FromBody] SavePartRequest request)
-    {
-        var command = new SavePartCommand(
-            request.SessionId,
-            request.PartNumber,
-            request.Answers,
-            request.EssayText,
-            request.AudioUrl,
-            request.TimeSpentSeconds
-        );
-
-        var result = await _mediator.Send(command);
-        return Ok(new { success = result });
-    }
-    // Examify.API/Controllers/FullTestController.cs
-    // Thêm action này vào controller hiện có
-
-    /// <summary>
-    /// Lấy trạng thái mở khóa các kỹ năng của Full Test
-    /// </summary>
     [HttpGet("{id}/status")]
     public async Task<ActionResult<FullTestStatusDto>> GetFullTestStatus(Guid id)
     {
@@ -64,12 +37,20 @@ public class FullTestController : ControllerBase
         var result = await _mediator.Send(query);
         return Ok(result);
     }
-    /// <summary>
-    /// Nộp toàn bộ bài thi và nhận kết quả
-    /// </summary>
-    [HttpPost("submit")]
-    public async Task<ActionResult<FullTestResultResponse>> Submit([FromBody] SubmitFullTestCommand command)
+
+    [HttpGet("{id}/result")]
+    public async Task<ActionResult<FullTestResultDetailDto>> GetFullTestResult(Guid id)
     {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var query = new GetFullTestResultQuery(id, userId);
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    [HttpPost("submit")]
+    public async Task<ActionResult<FullTestResultResponse>> Submit([FromBody] SubmitFullTestRequest request)
+    {
+        var command = new SubmitFullTestCommand(request.SessionId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

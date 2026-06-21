@@ -1,4 +1,4 @@
-﻿// Examify.Application/DTOs/Exercises/SpeakingQuestionDto.cs
+﻿/*// Examify.Application/DTOs/Exercises/SpeakingQuestionDto.cs
 namespace Examify.Application.DTOs.Exercises;
 
 public class SpeakingQuestionDto
@@ -10,4 +10,4 @@ public class SpeakingQuestionDto
     public int PreparationTime { get; set; }
     public int SpeakingTime { get; set; }
     public string? SampleAnswer { get; set; }
-}
+}*/

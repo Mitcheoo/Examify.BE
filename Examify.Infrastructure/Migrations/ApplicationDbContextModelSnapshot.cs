@@ -111,6 +111,9 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<int>("Skill")
                         .HasColumnType("int");
 
+                    b.Property<string>("Source")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("SpeakingExerciseId")
                         .HasColumnType("uniqueidentifier");
 
@@ -506,6 +509,65 @@ namespace Examify.Infrastructure.Migrations
                     b.ToTable("ReadingQuestions");
                 });
 
+            modelBuilder.Entity("Examify.Core.Entities.SessionAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AudioUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSubmitted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SkillType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Transcript")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserAnswer")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_SessionAnswers_SessionId");
+
+                    b.HasIndex("SessionId", "QuestionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId");
+
+                    b.ToTable("SessionAnswers", (string)null);
+                });
+
             modelBuilder.Entity("Examify.Core.Entities.SpeakingQuestion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -566,6 +628,9 @@ namespace Examify.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AiFeedback")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AnswerJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("AudioUrl")
@@ -650,6 +715,9 @@ namespace Examify.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Explanation")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsCorrect")
@@ -1217,6 +1285,17 @@ namespace Examify.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Exercise");
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.SessionAnswer", b =>
+                {
+                    b.HasOne("Examify.Core.Entities.FullTestSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.SpeakingQuestion", b =>

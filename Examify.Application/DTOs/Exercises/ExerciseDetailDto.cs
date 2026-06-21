@@ -20,9 +20,14 @@ public class ExerciseDetailDto
     public bool IsPurchased { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    // ✅ 4 PROPERTY LIÊN KẾT CHO FULL TEST
+    // 4 PROPERTY LIÊN KẾT CHO FULL TEST
     public Guid? ReadingExerciseId { get; set; }
     public Guid? ListeningExerciseId { get; set; }
     public Guid? WritingExerciseId { get; set; }
     public Guid? SpeakingExerciseId { get; set; }
+
+    // ✅ THÊM 3 PROPERTY NÀY CHO CÂU HỎI
+    public List<QuestionDto> Questions { get; set; } = new();
+    public List<WritingQuestionDto> WritingQuestions { get; set; } = new();
+    public List<SpeakingQuestionDto> SpeakingQuestions { get; set; } = new();
 }

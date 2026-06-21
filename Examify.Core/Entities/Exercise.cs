@@ -16,6 +16,8 @@ public class Exercise : BaseEntity
     public bool IsFullTest { get; set; } = false;
     public int AttemptCount { get; set; } = 0;
 
+    public string? Source { get; set; } // nguồn đề ở đâu
+
     // ✅ THÊM 4 PROPERTY NÀY ĐỂ LIÊN KẾT FULL TEST VỚI CÁC BÀI THI KỸ NĂNG
     public Guid? ReadingExerciseId { get; set; }
     public Guid? ListeningExerciseId { get; set; }

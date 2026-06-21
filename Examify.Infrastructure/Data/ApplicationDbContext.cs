@@ -117,5 +117,28 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
                   .HasForeignKey(e => e.SpeakingSubmissionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
+        builder.Entity<SessionAnswer>(entity =>
+        {
+            entity.ToTable("SessionAnswers");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserAnswer).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.AudioUrl).HasMaxLength(500);
+            entity.Property(e => e.Transcript).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsSubmitted).HasDefaultValue(false);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");  // ✅ DÙNG UpdatedAt TỪ BaseEntity
+
+            entity.HasOne(e => e.Session)
+                  .WithMany()
+                  .HasForeignKey(e => e.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.SessionId, e.QuestionId })
+                  .IsUnique()
+                  .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId");
+
+            entity.HasIndex(e => e.SessionId)
+                  .HasDatabaseName("IX_SessionAnswers_SessionId");
+        });
     }
 }

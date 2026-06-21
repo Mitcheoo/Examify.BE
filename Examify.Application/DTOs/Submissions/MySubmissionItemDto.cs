@@ -7,5 +7,10 @@ public class MySubmissionItemDto
     public Guid ExerciseId { get; set; }
     public string ExerciseTitle { get; set; } = string.Empty;
     public short TotalScore { get; set; }
+
+    // ✅ THÊM CÁC TRƯỜNG CHO SPEAKING
+    public string? AudioUrl { get; set; }
+    public string? Transcript { get; set; }
+
     public DateTime SubmittedAt { get; set; }
 }

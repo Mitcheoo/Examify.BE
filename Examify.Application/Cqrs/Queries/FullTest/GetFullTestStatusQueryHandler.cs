@@ -6,7 +6,7 @@ using Examify.Application.DTOs.FullTest;
 
 namespace Examify.Application.Cqrs.Queries.FullTest;
 
-public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQuery, FullTestStatusDto>
+public sealed class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQuery, FullTestStatusDto>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -17,12 +17,10 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
 
     public async Task<FullTestStatusDto> Handle(GetFullTestStatusQuery request, CancellationToken cancellationToken)
     {
-        // 1. Lấy thông tin Full Test
         var fullTest = await _unitOfWork.Exercises.GetByIdAsync(request.FullTestId);
-        if (fullTest == null || !fullTest.IsFullTest)
+        if (fullTest is null || !fullTest.IsFullTest)
             throw new NotFoundException($"Full Test with ID {request.FullTestId} not found");
 
-        // 2. Danh sách kỹ năng theo thứ tự (Reading -> Listening -> Writing -> Speaking)
         var skills = new List<SkillInfo>
         {
             new() { Skill = 0, Name = "Reading", ExerciseId = fullTest.ReadingExerciseId },
@@ -35,10 +33,9 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
         {
             FullTestId = fullTest.Id,
             FullTestTitle = fullTest.Title,
-            Skills = new List<SkillStatusDto>()
+            Skills = []
         };
 
-        // 3. Duyệt từng kỹ năng để xác định trạng thái
         for (int i = 0; i < skills.Count; i++)
         {
             var skill = skills[i];
@@ -47,7 +44,7 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
                 Skill = skill.Skill,
                 SkillName = skill.Name,
                 ExerciseId = skill.ExerciseId,
-                IsUnlocked = true,     // Mặc định kỹ năng đầu tiên được mở
+                IsUnlocked = true,
                 IsCompleted = false,
                 Attempts = 0,
                 BestScore = null,
@@ -55,7 +52,6 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
                 LastAttemptAt = null
             };
 
-            // 4. Lấy thông tin bài làm của kỹ năng này (nếu có ExerciseId)
             if (skill.ExerciseId.HasValue)
             {
                 var submissions = await _unitOfWork.Submissions
@@ -64,24 +60,21 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
                                  && s.IsGraded);
 
                 var submissionList = submissions.OrderByDescending(s => s.SubmittedAt).ToList();
-
                 status.Attempts = submissionList.Count;
 
-                if (submissionList.Any())
+                if (submissionList.Count != 0)
                 {
                     status.IsCompleted = true;
                     status.BestScore = submissionList.Max(s => (double)s.TotalScore);
-                    status.LatestScore = submissionList.First().TotalScore;
-                    status.LastAttemptAt = submissionList.First().SubmittedAt;
+                    status.LatestScore = submissionList[0].TotalScore;
+                    status.LastAttemptAt = submissionList[0].SubmittedAt;
                 }
             }
 
-            // 5. Kiểm tra điều kiện mở khóa (chỉ cần kỹ năng trước đã làm)
             if (i > 0)
             {
                 var previousSkill = result.Skills[i - 1];
 
-                // Điều kiện: kỹ năng trước đó đã được làm (có attempts > 0)
                 if (previousSkill.Attempts > 0)
                 {
                     status.IsUnlocked = true;
@@ -102,7 +95,7 @@ public class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestStatusQu
         return result;
     }
 
-    private class SkillInfo
+    private sealed class SkillInfo
     {
         public int Skill { get; set; }
         public string Name { get; set; } = string.Empty;

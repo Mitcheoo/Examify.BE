@@ -1,6 +1,9 @@
 ﻿// Examify.Core/Entities/FullTestSession.cs
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Examify.Core.Entities;
 
+[Table("FullTestSession")]
 public class FullTestSession : BaseEntity
 {
     public Guid UserId { get; set; }

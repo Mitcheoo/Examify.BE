@@ -31,7 +31,6 @@ public class ExercisesController : ControllerBase
      [FromQuery] int? skill = null,
      [FromQuery] string? search = null)
     {
-        // ✅ Dùng Query MỚI (GetPagedExercisesListQuery)
         var query = new GetPagedExercisesListQuery(page, pageSize, skill, search);
         var result = await _mediator.Send(query);
         return Ok(result);
@@ -85,6 +84,27 @@ public class ExercisesController : ControllerBase
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var query = new GetExerciseProgressQuery(id, userId);
         var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    // ============================================================
+    // ✅ THÊM MỚI: API STATS
+    // ============================================================
+
+    /// <summary>
+    /// Lấy thống kê tổng hợp bài làm của user theo kỹ năng
+    /// </summary>
+    [HttpGet("stats")]
+    public async Task<ActionResult<List<ExerciseStatsDto>>> GetExerciseStats([FromQuery] int? skill = null)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { message = "User not authenticated" });
+
+        var userId = Guid.Parse(userIdClaim);
+        var query = new GetExerciseStatsQuery(userId, skill);
+        var result = await _mediator.Send(query);
+
         return Ok(result);
     }
 }

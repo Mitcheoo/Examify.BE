@@ -30,6 +30,7 @@ public class UnitOfWork : IUnitOfWork
         Notifications = new GenericRepository<Notification>(context);
         FullTestSessions = new GenericRepository<FullTestSession>(context);
         Parts = new GenericRepository<Part>(context);
+        SessionAnswers = new GenericRepository<SessionAnswer>(context);
     }
 
     // Repository Properties
@@ -48,6 +49,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<Notification> Notifications { get; }
     public IRepository<FullTestSession> FullTestSessions { get; }
     public IRepository<Part> Parts { get; }
+    public IRepository<SessionAnswer> SessionAnswers { get; }
+
 
     public async Task<int> SaveChangesAsync()
     {

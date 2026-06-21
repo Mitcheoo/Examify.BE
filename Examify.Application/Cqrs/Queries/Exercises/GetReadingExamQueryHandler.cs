@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using AutoMapper;
 using Examify.Core.Interfaces;
+using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Exercises;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -22,21 +23,22 @@ public class GetReadingExamQueryHandler : IRequestHandler<GetReadingExamQuery, R
     {
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.ExerciseId);
         if (exercise == null)
-            throw new Exception("Exercise not found");
+            throw new NotFoundException($"Exercise with ID {request.ExerciseId} not found");
 
-        // Lấy Parts từ database
+        // ✅ THÊM !p.IsDeleted
         var parts = await _unitOfWork.Parts
-            .FindAsync(p => p.ExerciseId == request.ExerciseId);
+            .FindAsync(p => p.ExerciseId == request.ExerciseId && !p.IsDeleted);
 
-        // Lấy Questions từ database
+        // ✅ THÊM !q.IsDeleted
         var questions = await _unitOfWork.ReadingQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId);
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
 
         var partList = parts.ToList();
         var questionList = questions.ToList();
 
         Console.WriteLine($"📖 Found {partList.Count} parts for exercise {request.ExerciseId}");
         Console.WriteLine($"📖 Found {questionList.Count} questions for exercise {request.ExerciseId}");
+
 
         return new ReadingExamDto
         {
