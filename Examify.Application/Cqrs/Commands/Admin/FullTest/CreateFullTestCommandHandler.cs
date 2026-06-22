@@ -19,13 +19,32 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
 
     public async Task<ExerciseDto> Handle(CreateFullTestCommand request, CancellationToken cancellationToken)
     {
-        // ✅ LẤY ID TỪ REQUEST
+        // ============================================================
+        // BƯỚC 1: TẠO 4 KỸ NĂNG CON (NẾU CHƯA CÓ)
+        // ============================================================
+
+        // Lấy ID từ request (nếu có)
         var readingId = request.Dto.ReadingExerciseId;
         var listeningId = request.Dto.ListeningExerciseId;
         var writingId = request.Dto.WritingExerciseId;
         var speakingId = request.Dto.SpeakingExerciseId;
 
-        // ✅ TÍNH TỔNG SỐ CÂU HỎI TỪ CÁC BÀI CON
+        // ✅ NẾU KHÔNG CÓ, TỰ TẠO
+        if (!readingId.HasValue)
+            readingId = await CreateSkillExercise(0, "Reading");
+
+        if (!listeningId.HasValue)
+            listeningId = await CreateSkillExercise(1, "Listening");
+
+        if (!writingId.HasValue)
+            writingId = await CreateSkillExercise(2, "Writing");
+
+        if (!speakingId.HasValue)
+            speakingId = await CreateSkillExercise(3, "Speaking");
+
+        // ============================================================
+        // BƯỚC 2: TÍNH TỔNG SỐ CÂU HỎI
+        // ============================================================
         int totalQuestions = 0;
 
         if (readingId.HasValue)
@@ -49,14 +68,17 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
             if (speaking != null) totalQuestions += speaking.TotalQuestions;
         }
 
-        var fullTest = new Core.Entities.Exercise
+        // ============================================================
+        // BƯỚC 3: TẠO FULL TEST - ✅ DÙNG FULL PATH
+        // ============================================================
+        var fullTest = new Examify.Core.Entities.Exercise  // ✅ THÊM FULL PATH
         {
             Id = Guid.NewGuid(),
             Skill = 4,
             Title = request.Dto.Title,
             Description = request.Dto.Description,
             TotalParts = 4,
-            TotalQuestions = totalQuestions,  // ✅ TÍNH TỔNG
+            TotalQuestions = totalQuestions,
             TimeLimitSeconds = request.Dto.TimeLimitSeconds,
             Difficulty = request.Dto.Difficulty,
             IsFullTest = true,
@@ -64,7 +86,6 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false,
 
-            // ✅ GÁN ID TỪ REQUEST
             ReadingExerciseId = readingId,
             ListeningExerciseId = listeningId,
             WritingExerciseId = writingId,
@@ -75,5 +96,39 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
         await _unitOfWork.SaveChangesAsync();
 
         return _mapper.Map<ExerciseDto>(fullTest);
+    }
+
+    /// <summary>
+    /// Tạo bài thi kỹ năng con - ✅ DÙNG FULL PATH
+    /// </summary>
+    private async Task<Guid> CreateSkillExercise(int skill, string skillName)
+    {
+        var exercise = new Examify.Core.Entities.Exercise  // ✅ THÊM FULL PATH
+        {
+            Id = Guid.NewGuid(),
+            Skill = skill,
+            Title = $"VSTEP {skillName} Test - {DateTime.Now:yyyy-MM-dd HH:mm}",
+            Description = $"Bài thi {skillName} cho Full Test",
+            IsFullTest = false,
+            TotalParts = skill == 2 ? 1 : 3,
+            TotalQuestions = 3,
+            TimeLimitSeconds = skill switch
+            {
+                0 => 3600,   // Reading: 60 phút
+                1 => 2400,   // Listening: 40 phút
+                2 => 3600,   // Writing: 60 phút
+                3 => 1800,   // Speaking: 30 phút
+                _ => 3600
+            },
+            Difficulty = 2,
+            AttemptCount = 0,
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        await _unitOfWork.Exercises.AddAsync(exercise);
+        await _unitOfWork.SaveChangesAsync();
+
+        return exercise.Id;
     }
 }

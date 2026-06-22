@@ -4,6 +4,7 @@ namespace Examify.Application.DTOs.Submissions;
 public class SubmissionDetailDto
 {
     public Guid Id { get; set; }
+    public Guid UserId { get; set; }
     public Guid ExerciseId { get; set; }
     public string ExerciseTitle { get; set; } = string.Empty;
     public int Skill { get; set; }

@@ -88,3 +88,7 @@ public class SkillStatusDto
     public string? RequiredSkillName { get; set; }
     public string? Message { get; set; }
 }
+public class StartFullTestRequest
+{
+    public Guid FullTestId { get; set; }
+}

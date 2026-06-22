@@ -77,6 +77,7 @@ public class GetSubmissionResultQueryHandler : IRequestHandler<GetSubmissionResu
         return new SubmissionDetailDto
         {
             Id = submission.Id,
+            UserId = submission.UserId,
             ExerciseId = submission.ExerciseId,
             ExerciseTitle = exercise.Title,
             Skill = submission.SkillType,

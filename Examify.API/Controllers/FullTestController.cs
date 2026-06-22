@@ -21,13 +21,15 @@ public sealed class FullTestController : ControllerBase
         _mediator = mediator;
     }
 
+    // Examify.API/Controllers/FullTestController.cs
+
     [HttpPost("start")]
-    public async Task<ActionResult<StartFullTestResponse>> Start()
+    public async Task<ActionResult<StartFullTestResponse>> Start([FromBody] StartFullTestRequest request)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _mediator.Send(new StartFullTestCommand(userId));
+        var result = await _mediator.Send(new StartFullTestCommand(userId, request.FullTestId));
         return Ok(result);
-    }
+    }   
 
     [HttpGet("{id}/status")]
     public async Task<ActionResult<FullTestStatusDto>> GetFullTestStatus(Guid id)
