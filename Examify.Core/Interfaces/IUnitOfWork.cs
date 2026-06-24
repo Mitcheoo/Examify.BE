@@ -21,6 +21,7 @@ public interface IUnitOfWork : IDisposable
     IRepository<Notification> Notifications { get; }
     IRepository<FullTestSession> FullTestSessions { get; }
     IRepository<Part> Parts { get; }
+    IRepository<SessionAnswer> SessionAnswers { get; }
 
     Task<int> SaveChangesAsync();
 }

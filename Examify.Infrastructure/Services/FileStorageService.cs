@@ -13,7 +13,6 @@ public class FileStorageService : IFileStorageService
     {
         _storagePath = configuration["Storage:Path"] ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
 
-        // Tạo thư mục nếu chưa tồn tại
         if (!Directory.Exists(_storagePath))
         {
             Directory.CreateDirectory(_storagePath);
@@ -57,14 +56,20 @@ public class FileStorageService : IFileStorageService
 
     public Task DeleteFileAsync(string fileUrl)
     {
-        var relativePath = fileUrl.TrimStart('/');
-        var fullPath = Path.Combine(_storagePath, relativePath.Replace("uploads/", ""));
-
-        if (File.Exists(fullPath))
+        try
         {
-            File.Delete(fullPath);
-        }
+            var relativePath = fileUrl.TrimStart('/');
+            var fullPath = Path.Combine(_storagePath, relativePath.Replace("uploads/", ""));
 
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting file: {ex.Message}");
+        }
         return Task.CompletedTask;
     }
 

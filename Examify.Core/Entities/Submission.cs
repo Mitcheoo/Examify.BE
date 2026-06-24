@@ -13,6 +13,7 @@ public class Submission : BaseEntity
     public int CorrectCount { get; set; }
     public int TimeSpentSeconds { get; set; }
     public string? ResultJson { get; set; }
+    public string? AnswerJson { get; set; }
     public string? EssayText { get; set; }
     public string? AudioUrl { get; set; }
     public string? Transcript { get; set; }

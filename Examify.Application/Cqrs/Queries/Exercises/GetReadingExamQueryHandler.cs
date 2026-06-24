@@ -1,8 +1,10 @@
-﻿// Examify.Application/Cqrs/Queries/Exercises/GetReadingExamQueryHandler.cs
-using MediatR;
+﻿using MediatR;
 using AutoMapper;
 using Examify.Core.Interfaces;
+using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Exercises;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Examify.Application.Cqrs.Queries.Exercises;
 
@@ -21,22 +23,31 @@ public class GetReadingExamQueryHandler : IRequestHandler<GetReadingExamQuery, R
     {
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.ExerciseId);
         if (exercise == null)
-            throw new Exception("Exercise not found");
+            throw new NotFoundException($"Exercise with ID {request.ExerciseId} not found");
 
-        var questions = await _unitOfWork.ReadingQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId);
-
+        // ✅ THÊM !p.IsDeleted
         var parts = await _unitOfWork.Parts
-            .FindAsync(p => p.ExerciseId == request.ExerciseId);
+            .FindAsync(p => p.ExerciseId == request.ExerciseId && !p.IsDeleted);
+
+        // ✅ THÊM !q.IsDeleted
+        var questions = await _unitOfWork.ReadingQuestions
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
+
+        var partList = parts.ToList();
+        var questionList = questions.ToList();
+
+        Console.WriteLine($"📖 Found {partList.Count} parts for exercise {request.ExerciseId}");
+        Console.WriteLine($"📖 Found {questionList.Count} questions for exercise {request.ExerciseId}");
+
 
         return new ReadingExamDto
         {
             ExerciseId = exercise.Id,
             Title = exercise.Title,
             TimeLimitSeconds = exercise.TimeLimitSeconds,
-            TotalQuestions = questions.Count(),
-            Parts = _mapper.Map<List<PartDto>>(parts),
-            Questions = _mapper.Map<List<ReadingQuestionDto>>(questions.OrderBy(q => q.OrderNumber))
+            TotalQuestions = questionList.Count,
+            Parts = _mapper.Map<List<PartDto>>(partList.OrderBy(p => p.PartNumber)),
+            Questions = _mapper.Map<List<ReadingQuestionDto>>(questionList.OrderBy(q => q.OrderNumber))
         };
     }
 }
