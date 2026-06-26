@@ -1,4 +1,5 @@
-﻿// Examify.Infrastructure/Data/ApplicationDbContext.cs
+﻿// 📁 Examify.Infrastructure/Data/ApplicationDbContext.cs
+
 using Examify.Core.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -28,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<Leaderboard> Leaderboards { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<FullTestSession> FullTestSessions { get; set; }
+    public DbSet<SessionAnswer> SessionAnswers { get; set; } // ✅ THÊM DbSet NÀY
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -39,7 +41,6 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
             entity.ToTable("Exercises");
             entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
 
-            // ✅ THÊM CẤU HÌNH CHO CÁC PROPERTY LIÊN KẾT FULL TEST
             entity.HasOne(e => e.ReadingExercise)
                   .WithMany()
                   .HasForeignKey(e => e.ReadingExerciseId)
@@ -71,7 +72,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
                   .HasForeignKey(e => e.ExerciseId);
         });
 
-        // ✅ CẤU HÌNH CHO FULL TEST SESSION
+        // Cấu hình Full Test Session
         builder.Entity<FullTestSession>(entity =>
         {
             entity.ToTable("FullTestSessions");
@@ -117,6 +118,10 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
                   .HasForeignKey(e => e.SpeakingSubmissionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
+
+        // ============================================================
+        // CẤU HÌNH SESSION ANSWER - CHỈ SỬA ĐÚNG PHẦN INDEX
+        // ============================================================
         builder.Entity<SessionAnswer>(entity =>
         {
             entity.ToTable("SessionAnswers");
@@ -126,16 +131,18 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
             entity.Property(e => e.AudioUrl).HasMaxLength(500);
             entity.Property(e => e.Transcript).HasColumnType("nvarchar(max)");
             entity.Property(e => e.IsSubmitted).HasDefaultValue(false);
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");  // ✅ DÙNG UpdatedAt TỪ BaseEntity
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasOne(e => e.Session)
                   .WithMany()
                   .HasForeignKey(e => e.SessionId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            // ✅ CHỈ SỬA ĐÚNG DÒNG NÀY - THÊM HASFILTER
             entity.HasIndex(e => new { e.SessionId, e.QuestionId })
                   .IsUnique()
-                  .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId");
+                  .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId")
+                  .HasFilter("[IsDeleted] = 0");  // ✅ THÊM DÒNG NÀY
 
             entity.HasIndex(e => e.SessionId)
                   .HasDatabaseName("IX_SessionAnswers_SessionId");

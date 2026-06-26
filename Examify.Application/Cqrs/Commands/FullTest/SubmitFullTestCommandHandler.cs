@@ -55,7 +55,7 @@ public sealed class SubmitFullTestCommandHandler : IRequestHandler<SubmitFullTes
         session.WritingSubmissionId = writingSub?.Id;
         session.SpeakingSubmissionId = speakingSub?.Id;
 
-        // ✅ CẬP NHẬT TIMESPENT - LẤY TỪ SUBMISSION
+        // Cập nhật TimeSpent
         session.ReadingTimeSpent = readingSub?.TimeSpentSeconds ?? 0;
         session.ListeningTimeSpent = listeningSub?.TimeSpentSeconds ?? 0;
         session.WritingTimeSpent = writingSub?.TimeSpentSeconds ?? 0;
@@ -74,6 +74,23 @@ public sealed class SubmitFullTestCommandHandler : IRequestHandler<SubmitFullTes
         session.EndTime = DateTime.UtcNow;
 
         await _unitOfWork.SaveChangesAsync();
+
+        // ============================================================
+        // ✅ THÊM: XÓA SESSION ANSWERS SAU KHI NỘP BÀI
+        // ============================================================
+
+        Console.WriteLine($"🗑️ Deleting draft answers for session: {session.Id}");
+
+        var draftAnswers = await _unitOfWork.SessionAnswers
+            .FindAsync(a => a.SessionId == session.Id);
+
+        foreach (var answer in draftAnswers)
+        {
+            await _unitOfWork.SessionAnswers.DeleteAsync(answer);
+            Console.WriteLine($"   ✅ Deleted answer for question: {answer.QuestionId}");
+        }
+
+        Console.WriteLine($"✅ All draft answers deleted for session: {session.Id}");
 
         // Cập nhật Leaderboard
         await UpdateLeaderboard(session.UserId, session.TotalScore.Value);

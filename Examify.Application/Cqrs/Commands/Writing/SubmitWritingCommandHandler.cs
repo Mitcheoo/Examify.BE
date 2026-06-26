@@ -1,10 +1,13 @@
-﻿// Examify.Application/Cqrs/Commands/Writing/SubmitWritingCommandHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Commands/Writing/SubmitWritingCommandHandler.cs
+
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Submissions;
 using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace Examify.Application.Cqrs.Commands.Writing;
 
@@ -12,15 +15,27 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAIGradingService _aiGradingService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public SubmitWritingCommandHandler(IUnitOfWork unitOfWork, IAIGradingService aiGradingService)
+    public SubmitWritingCommandHandler(
+        IUnitOfWork unitOfWork,
+        IAIGradingService aiGradingService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _aiGradingService = aiGradingService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<SubmissionDetailDto> Handle(SubmitWritingCommand request, CancellationToken cancellationToken)
     {
+        // ✅ LẤY USER ID TỪ TOKEN
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            throw new Exception("User not authenticated");
+        var userId = Guid.Parse(userIdClaim);
+        Console.WriteLine($"👤 User ID from token: {userId}");
+
         // 1. Lấy tất cả câu hỏi Writing
         var questions = await _unitOfWork.WritingQuestions
             .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
@@ -49,10 +64,8 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         // 4. Gọi AI chấm BATCH
         var aiResults = await _aiGradingService.GradeWritingBatchAsync(essaysForAI);
 
-        // ✅ THÊM: KIỂM TRA AI RESULTS RỖNG
         if (aiResults == null || aiResults.Count == 0)
         {
-            // Nếu AI lỗi, dùng fallback grading
             aiResults = questionList.Select(q => new WritingGradeResult
             {
                 TaskResponseScore = 5.0,
@@ -66,7 +79,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
             }).ToList();
         }
 
-        // 5. Tạo chi tiết và tính điểm - ✅ Dùng SubmissionAnswerDetailDto
+        // 5. Tạo chi tiết và tính điểm
         var details = new List<SubmissionAnswerDetailDto>();
         double totalScore = 0;
 
@@ -100,7 +113,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
-            UserId = request.UserId,
+            UserId = userId,  // ✅ DÙNG USER ID TỪ TOKEN
             ExerciseId = request.ExerciseId,
             SkillType = 2,
             TotalScore = (short)Math.Round(averageScore),
@@ -123,13 +136,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
 
         await _unitOfWork.Submissions.AddAsync(submission);
 
-        // 8. Cập nhật AttemptCount
-        exercise.AttemptCount++;
-        await _unitOfWork.Exercises.UpdateAsync(exercise);
-
-        await _unitOfWork.SaveChangesAsync();
-
-        // 9. Lưu SubmissionDetail cho từng câu
+        // 8. Lưu SubmissionDetail cho từng câu
         foreach (var question in questionList)
         {
             string essayText = essayTexts[question.Id];
@@ -154,9 +161,26 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
             await _unitOfWork.SubmissionDetails.AddAsync(detail);
         }
 
+        // 9. Cập nhật Full Test Session
+        if (request.SessionId.HasValue && request.SessionId.Value != Guid.Empty)
+        {
+            var session = await _unitOfWork.FullTestSessions.GetByIdAsync(request.SessionId.Value);
+            if (session != null)
+            {
+                session.WritingSubmissionId = submission.Id;
+                session.WritingTimeSpent = request.TimeSpentSeconds;
+                await _unitOfWork.FullTestSessions.UpdateAsync(session);
+                Console.WriteLine($"✅ Updated session {session.Id} with WritingSubmissionId: {submission.Id}");
+            }
+        }
+
+        // 10. Cập nhật AttemptCount
+        exercise.AttemptCount++;
+        await _unitOfWork.Exercises.UpdateAsync(exercise);
+
         await _unitOfWork.SaveChangesAsync();
 
-        // 10. Trả về kết quả - ✅ Dùng SubmissionDetailDto
+        // 11. Trả về kết quả
         return new SubmissionDetailDto
         {
             Id = submission.Id,

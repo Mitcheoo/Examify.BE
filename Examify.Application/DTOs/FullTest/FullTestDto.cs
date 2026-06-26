@@ -58,7 +58,7 @@ public class SkillResultDto
     public Guid? SubmissionId { get; set; }
     public short Score { get; set; }
     public int TimeSpentSeconds { get; set; }
-    public DateTime SubmittedAt { get; set; }
+    public DateTime? SubmittedAt { get; set; }
     public bool IsCompleted { get; set; }
 
     public int TotalQuestions { get; set; }

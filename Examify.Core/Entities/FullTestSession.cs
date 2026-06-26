@@ -7,9 +7,12 @@ namespace Examify.Core.Entities;
 public class FullTestSession : BaseEntity
 {
     public Guid UserId { get; set; }
+    public Guid FullTestId { get; set; }
     public DateTime StartTime { get; set; } = DateTime.UtcNow;
     public DateTime? EndTime { get; set; }
     public short? TotalScore { get; set; }
+
+    public bool AttemptCounted { get; set; } = false;
 
     // ✅ THÊM CÁC TRƯỜNG NÀY
     public int Status { get; set; } = 0; // 0=InProgress, 1=Completed, 2=Expired

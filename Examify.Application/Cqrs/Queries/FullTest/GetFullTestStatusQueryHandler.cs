@@ -1,4 +1,5 @@
-﻿// Examify.Application/Cqrs/Queries/FullTest/GetFullTestStatusQueryHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Queries/FullTest/GetFullTestStatusQueryHandler.cs
+
 using MediatR;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
@@ -21,6 +22,30 @@ public sealed class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestS
         if (fullTest is null || !fullTest.IsFullTest)
             throw new NotFoundException($"Full Test with ID {request.FullTestId} not found");
 
+        // ✅ LẤY TẤT CẢ SUBMISSIONS CỦA USER
+        var allSubmissions = await _unitOfWork.Submissions
+            .FindAsync(s => s.UserId == request.UserId && s.IsGraded);
+
+        // ✅ LẤY SESSION HIỆN TẠI (IN PROGRESS)
+        var currentSessions = await _unitOfWork.FullTestSessions
+            .FindAsync(s => s.UserId == request.UserId && s.FullTestId == request.FullTestId && s.Status == 0);
+
+        var currentSession = currentSessions.FirstOrDefault();
+
+        // ✅ LẤY SUBMISSION IDs TỪ SESSION HIỆN TẠI
+        var sessionSubmissionIds = new HashSet<Guid>();
+        if (currentSession != null)
+        {
+            if (currentSession.ReadingSubmissionId.HasValue)
+                sessionSubmissionIds.Add(currentSession.ReadingSubmissionId.Value);
+            if (currentSession.ListeningSubmissionId.HasValue)
+                sessionSubmissionIds.Add(currentSession.ListeningSubmissionId.Value);
+            if (currentSession.WritingSubmissionId.HasValue)
+                sessionSubmissionIds.Add(currentSession.WritingSubmissionId.Value);
+            if (currentSession.SpeakingSubmissionId.HasValue)
+                sessionSubmissionIds.Add(currentSession.SpeakingSubmissionId.Value);
+        }
+
         var skills = new List<SkillInfo>
         {
             new() { Skill = 0, Name = "Reading", ExerciseId = fullTest.ReadingExerciseId },
@@ -39,6 +64,13 @@ public sealed class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestS
         for (int i = 0; i < skills.Count; i++)
         {
             var skill = skills[i];
+
+            // ✅ LỌC SUBMISSIONS THEO SKILL
+            var skillSubmissions = allSubmissions
+                .Where(s => s.ExerciseId == skill.ExerciseId)
+                .OrderByDescending(s => s.SubmittedAt)
+                .ToList();
+
             var status = new SkillStatusDto
             {
                 Skill = skill.Skill,
@@ -52,30 +84,36 @@ public sealed class GetFullTestStatusQueryHandler : IRequestHandler<GetFullTestS
                 LastAttemptAt = null
             };
 
-            if (skill.ExerciseId.HasValue)
+            // ✅ KIỂM TRA SUBMISSIONS CỦA SKILL NÀY
+            if (skill.ExerciseId.HasValue && skillSubmissions.Any())
             {
-                var submissions = await _unitOfWork.Submissions
-                    .FindAsync(s => s.UserId == request.UserId
-                                 && s.ExerciseId == skill.ExerciseId.Value
-                                 && s.IsGraded);
+                status.Attempts = skillSubmissions.Count;
 
-                var submissionList = submissions.OrderByDescending(s => s.SubmittedAt).ToList();
-                status.Attempts = submissionList.Count;
+                // ✅ CHỈ COMPLETED KHI SUBMISSION THUỘC SESSION HIỆN TẠI
+                var hasValidSubmission = skillSubmissions.Any(s => sessionSubmissionIds.Contains(s.Id));
 
-                if (submissionList.Count != 0)
+                if (hasValidSubmission)
                 {
                     status.IsCompleted = true;
-                    status.BestScore = submissionList.Max(s => (double)s.TotalScore);
-                    status.LatestScore = submissionList[0].TotalScore;
-                    status.LastAttemptAt = submissionList[0].SubmittedAt;
+                    status.BestScore = skillSubmissions.Max(s => (double)s.TotalScore);
+                    status.LatestScore = skillSubmissions.First().TotalScore;
+                    status.LastAttemptAt = skillSubmissions.First().SubmittedAt;
+                }
+                else
+                {
+                    status.IsCompleted = false;
+                    status.BestScore = null;
+                    status.LatestScore = null;
+                    status.LastAttemptAt = null;
                 }
             }
 
+            // ✅ LOGIC UNLOCK: Skill sau mở khóa khi skill trước đã hoàn thành trong session hiện tại
             if (i > 0)
             {
                 var previousSkill = result.Skills[i - 1];
 
-                if (previousSkill.Attempts > 0)
+                if (previousSkill.IsCompleted)
                 {
                     status.IsUnlocked = true;
                     status.Message = $"Đã hoàn thành {previousSkill.SkillName}, được mở khóa";

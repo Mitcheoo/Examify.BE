@@ -1,4 +1,5 @@
-﻿// Examify.Application/Cqrs/Queries/FullTest/GetFullTestResultQueryHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Queries/FullTest/GetFullTestResultQueryHandler.cs
+
 using MediatR;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
@@ -22,13 +23,35 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
         if (fullTest is null || !fullTest.IsFullTest)
             throw new NotFoundException("Full Test not found");
 
-        // 2. Lấy session đã hoàn thành
+        // 2. Lấy session đã hoàn thành CÓ SUBMISSION
         var sessions = await _unitOfWork.FullTestSessions
             .FindAsync(s => s.UserId == request.UserId && s.Status == 1);
 
-        var session = sessions.OrderByDescending(s => s.EndTime).FirstOrDefault();
-        if (session is null)
-            throw new NotFoundException("No completed session found for this Full Test");
+        // ✅ CHỈ LẤY SESSION CÓ ÍT NHẤT 1 SUBMISSION
+        var validSession = sessions
+            .Where(s => s.ReadingSubmissionId.HasValue
+                     || s.ListeningSubmissionId.HasValue
+                     || s.WritingSubmissionId.HasValue
+                     || s.SpeakingSubmissionId.HasValue)
+            .OrderByDescending(s => s.EndTime)
+            .FirstOrDefault();
+
+        if (validSession is null)
+        {
+            // ✅ TRẢ VỀ KẾT QUẢ RỖNG NẾU CHƯA CÓ BÀI LÀM
+            return new FullTestResultDetailDto
+            {
+                FullTestId = fullTest.Id,
+                FullTestTitle = fullTest.Title,
+                TotalScore = 0,
+                TotalQuestions = 0,
+                CorrectCount = 0,
+                TotalTimeSpentSeconds = 0,
+                SkillResults = new List<SkillResultDto>(),
+                // ✅ KHÔNG DÙNG Message (vì DTO không có property này)
+                // Sẽ xử lý ở Frontend
+            };
+        }
 
         // 3. Khởi tạo dữ liệu
         var skillResults = new List<SkillResultDto>();
@@ -41,9 +64,9 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
         // ============================================================
 
         // === READING ===
-        if (session.ReadingSubmissionId.HasValue)
+        if (validSession.ReadingSubmissionId.HasValue)
         {
-            var readingSubmission = await _unitOfWork.Submissions.GetByIdAsync(session.ReadingSubmissionId.Value);
+            var readingSubmission = await _unitOfWork.Submissions.GetByIdAsync(validSession.ReadingSubmissionId.Value);
             if (readingSubmission != null)
             {
                 totalQuestions += readingSubmission.TotalQuestions;
@@ -56,21 +79,37 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
             {
                 Skill = 0,
                 SkillName = "Reading",
-                SubmissionId = session.ReadingSubmissionId,
+                SubmissionId = validSession.ReadingSubmissionId,
                 Score = readingSubmission?.TotalScore ?? 0,
-                TimeSpentSeconds = session.ReadingTimeSpent,
-                SubmittedAt = readingSubmission?.SubmittedAt ?? session.EndTime ?? DateTime.UtcNow,
+                TimeSpentSeconds = validSession.ReadingTimeSpent,
+                SubmittedAt = readingSubmission?.SubmittedAt ?? validSession.EndTime ?? DateTime.UtcNow,
                 IsCompleted = readingSubmission is not null,
                 TotalQuestions = readingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = readingSubmission?.CorrectCount ?? 0,
                 Status = readingSubmission is not null ? "completed" : "pending"
             });
         }
+        else
+        {
+            skillResults.Add(new SkillResultDto
+            {
+                Skill = 0,
+                SkillName = "Reading",
+                SubmissionId = null,
+                Score = 0,
+                TimeSpentSeconds = 0,
+                SubmittedAt = null,  // ✅ Cho phép null
+                IsCompleted = false,
+                TotalQuestions = 0,
+                CorrectCount = 0,
+                Status = "pending"
+            });
+        }
 
         // === LISTENING ===
-        if (session.ListeningSubmissionId.HasValue)
+        if (validSession.ListeningSubmissionId.HasValue)
         {
-            var listeningSubmission = await _unitOfWork.Submissions.GetByIdAsync(session.ListeningSubmissionId.Value);
+            var listeningSubmission = await _unitOfWork.Submissions.GetByIdAsync(validSession.ListeningSubmissionId.Value);
             if (listeningSubmission != null)
             {
                 totalQuestions += listeningSubmission.TotalQuestions;
@@ -83,21 +122,37 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
             {
                 Skill = 1,
                 SkillName = "Listening",
-                SubmissionId = session.ListeningSubmissionId,
+                SubmissionId = validSession.ListeningSubmissionId,
                 Score = listeningSubmission?.TotalScore ?? 0,
-                TimeSpentSeconds = session.ListeningTimeSpent,
-                SubmittedAt = listeningSubmission?.SubmittedAt ?? session.EndTime ?? DateTime.UtcNow,
+                TimeSpentSeconds = validSession.ListeningTimeSpent,
+                SubmittedAt = listeningSubmission?.SubmittedAt ?? validSession.EndTime ?? DateTime.UtcNow,
                 IsCompleted = listeningSubmission is not null,
                 TotalQuestions = listeningSubmission?.TotalQuestions ?? 0,
                 CorrectCount = listeningSubmission?.CorrectCount ?? 0,
                 Status = listeningSubmission is not null ? "completed" : "pending"
             });
         }
+        else
+        {
+            skillResults.Add(new SkillResultDto
+            {
+                Skill = 1,
+                SkillName = "Listening",
+                SubmissionId = null,
+                Score = 0,
+                TimeSpentSeconds = 0,
+                SubmittedAt = null,  // ✅ Cho phép null
+                IsCompleted = false,
+                TotalQuestions = 0,
+                CorrectCount = 0,
+                Status = "pending"
+            });
+        }
 
         // === WRITING ===
-        if (session.WritingSubmissionId.HasValue)
+        if (validSession.WritingSubmissionId.HasValue)
         {
-            var writingSubmission = await _unitOfWork.Submissions.GetByIdAsync(session.WritingSubmissionId.Value);
+            var writingSubmission = await _unitOfWork.Submissions.GetByIdAsync(validSession.WritingSubmissionId.Value);
             if (writingSubmission != null)
             {
                 totalQuestions += writingSubmission.TotalQuestions;
@@ -110,21 +165,37 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
             {
                 Skill = 2,
                 SkillName = "Writing",
-                SubmissionId = session.WritingSubmissionId,
+                SubmissionId = validSession.WritingSubmissionId,
                 Score = writingSubmission?.TotalScore ?? 0,
-                TimeSpentSeconds = session.WritingTimeSpent,
-                SubmittedAt = writingSubmission?.SubmittedAt ?? session.EndTime ?? DateTime.UtcNow,
+                TimeSpentSeconds = validSession.WritingTimeSpent,
+                SubmittedAt = writingSubmission?.SubmittedAt ?? validSession.EndTime ?? DateTime.UtcNow,
                 IsCompleted = writingSubmission is not null,
                 TotalQuestions = writingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = writingSubmission?.CorrectCount ?? 0,
                 Status = writingSubmission is not null ? "completed" : "pending"
             });
         }
+        else
+        {
+            skillResults.Add(new SkillResultDto
+            {
+                Skill = 2,
+                SkillName = "Writing",
+                SubmissionId = null,
+                Score = 0,
+                TimeSpentSeconds = 0,
+                SubmittedAt = null,  // ✅ Cho phép null
+                IsCompleted = false,
+                TotalQuestions = 0,
+                CorrectCount = 0,
+                Status = "pending"
+            });
+        }
 
         // === SPEAKING ===
-        if (session.SpeakingSubmissionId.HasValue)
+        if (validSession.SpeakingSubmissionId.HasValue)
         {
-            var speakingSubmission = await _unitOfWork.Submissions.GetByIdAsync(session.SpeakingSubmissionId.Value);
+            var speakingSubmission = await _unitOfWork.Submissions.GetByIdAsync(validSession.SpeakingSubmissionId.Value);
             if (speakingSubmission != null)
             {
                 totalQuestions += speakingSubmission.TotalQuestions;
@@ -137,31 +208,47 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
             {
                 Skill = 3,
                 SkillName = "Speaking",
-                SubmissionId = session.SpeakingSubmissionId,
+                SubmissionId = validSession.SpeakingSubmissionId,
                 Score = speakingSubmission?.TotalScore ?? 0,
-                TimeSpentSeconds = session.SpeakingTimeSpent,
-                SubmittedAt = speakingSubmission?.SubmittedAt ?? session.EndTime ?? DateTime.UtcNow,
+                TimeSpentSeconds = validSession.SpeakingTimeSpent,
+                SubmittedAt = speakingSubmission?.SubmittedAt ?? validSession.EndTime ?? DateTime.UtcNow,
                 IsCompleted = speakingSubmission is not null,
                 TotalQuestions = speakingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = speakingSubmission?.CorrectCount ?? 0,
                 Status = speakingSubmission is not null ? "completed" : "pending"
             });
         }
+        else
+        {
+            skillResults.Add(new SkillResultDto
+            {
+                Skill = 3,
+                SkillName = "Speaking",
+                SubmissionId = null,
+                Score = 0,
+                TimeSpentSeconds = 0,
+                SubmittedAt = null,  // ✅ Cho phép null
+                IsCompleted = false,
+                TotalQuestions = 0,
+                CorrectCount = 0,
+                Status = "pending"
+            });
+        }
 
         // 5. Tính tổng thời gian
-        var totalTimeSpent = session.ReadingTimeSpent + session.ListeningTimeSpent +
-                             session.WritingTimeSpent + session.SpeakingTimeSpent;
+        var totalTimeSpent = validSession.ReadingTimeSpent + validSession.ListeningTimeSpent +
+                             validSession.WritingTimeSpent + validSession.SpeakingTimeSpent;
 
         // 6. Trả về kết quả
         return new FullTestResultDetailDto
         {
-            SessionId = session.Id,
+            SessionId = validSession.Id,
             FullTestId = fullTest.Id,
             FullTestTitle = fullTest.Title,
-            StartedAt = session.StartTime,
-            CompletedAt = session.EndTime,
+            StartedAt = validSession.StartTime,
+            CompletedAt = validSession.EndTime,
             TotalTimeSpentSeconds = totalTimeSpent,
-            TotalScore = session.TotalScore ?? 0,
+            TotalScore = validSession.TotalScore ?? 0,
             TotalQuestions = totalQuestions,
             CorrectCount = correctCount,
             SubmittedAt = submittedAt,

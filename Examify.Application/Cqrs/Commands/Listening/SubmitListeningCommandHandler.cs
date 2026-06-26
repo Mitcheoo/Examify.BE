@@ -1,24 +1,36 @@
-﻿// Examify.Application/Cqrs/Commands/Listening/SubmitListeningCommandHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Commands/Listening/SubmitListeningCommandHandler.cs
+
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Submissions;
 using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace Examify.Application.Cqrs.Commands.Listening;
 
 public class SubmitListeningCommandHandler : IRequestHandler<SubmitListeningCommand, SubmissionDetailDto>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public SubmitListeningCommandHandler(IUnitOfWork unitOfWork)
+    public SubmitListeningCommandHandler(IUnitOfWork unitOfWork, IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<SubmissionDetailDto> Handle(SubmitListeningCommand request, CancellationToken cancellationToken)
     {
+        // ✅ LẤY USER ID TỪ TOKEN
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            throw new Exception("User not authenticated");
+        var userId = Guid.Parse(userIdClaim);
+        Console.WriteLine($"👤 User ID from token: {userId}");
+
         // 1. Lấy câu hỏi Listening
         var questions = await _unitOfWork.ListeningQuestions
             .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
@@ -58,14 +70,14 @@ public class SubmitListeningCommandHandler : IRequestHandler<SubmitListeningComm
             });
         }
 
-        // 4. Tính điểm (thang 10)
+        // 4. Tính điểm
         var totalScore = Math.Round((double)correctCount / questionList.Count * 10, 1);
 
         // 5. Tạo Submission
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
-            UserId = request.UserId,
+            UserId = userId,  // ✅ DÙNG USER ID TỪ TOKEN
             ExerciseId = request.ExerciseId,
             SkillType = 1,
             TotalScore = (short)totalScore,
@@ -100,7 +112,6 @@ public class SubmitListeningCommandHandler : IRequestHandler<SubmitListeningComm
                 PointEarned = isCorrect ? (short)1 : (short)0,
                 AiScore = null,
                 AiFeedback = null,
-               /* Explanation = q.Explanation,*/
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
@@ -108,13 +119,26 @@ public class SubmitListeningCommandHandler : IRequestHandler<SubmitListeningComm
             await _unitOfWork.SubmissionDetails.AddAsync(detail);
         }
 
-        // 7. Cập nhật AttemptCount
+        // 7. Cập nhật Full Test Session
+        if (request.SessionId.HasValue && request.SessionId.Value != Guid.Empty)
+        {
+            var session = await _unitOfWork.FullTestSessions.GetByIdAsync(request.SessionId.Value);
+            if (session != null)
+            {
+                session.ListeningSubmissionId = submission.Id;
+                session.ListeningTimeSpent = request.TimeSpentSeconds;
+                await _unitOfWork.FullTestSessions.UpdateAsync(session);
+                Console.WriteLine($"✅ Updated session {session.Id} with ListeningSubmissionId: {submission.Id}");
+            }
+        }
+
+        // 8. Cập nhật AttemptCount
         exercise.AttemptCount++;
         await _unitOfWork.Exercises.UpdateAsync(exercise);
 
         await _unitOfWork.SaveChangesAsync();
 
-        // 8. Trả về kết quả
+        // 9. Trả về kết quả
         return new SubmissionDetailDto
         {
             Id = submission.Id,

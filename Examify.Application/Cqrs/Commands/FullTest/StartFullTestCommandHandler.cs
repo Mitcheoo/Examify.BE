@@ -21,9 +21,40 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
         // 1. Lấy Full Test
         var fullTest = await _unitOfWork.Exercises.GetByIdAsync(request.FullTestId);
         if (fullTest is null || !fullTest.IsFullTest)
-            throw new NotFoundException($"Full Test with ID {request.   FullTestId} not found");
+            throw new NotFoundException($"Full Test with ID {request.FullTestId} not found");
 
-        // 2. Tạo hoặc lấy 4 Exercise con (CHỈ LIÊN KẾT VỚI FULL TEST NÀY)
+        // ============================================================
+        // ✅ THÊM: XÓA SESSION CŨ VÀ DRAFT ANSWERS
+        // ============================================================
+
+        // 1.1 Tìm session cũ (InProgress) của user cho Full Test này
+        var oldSessions = await _unitOfWork.FullTestSessions
+            .FindAsync(s => s.UserId == request.UserId && s.FullTestId == request.FullTestId && s.Status == 0);
+
+        var oldSession = oldSessions.FirstOrDefault();
+
+        if (oldSession != null)
+        {
+            Console.WriteLine($"🗑️ Found old session: {oldSession.Id}, deleting draft answers...");
+
+            // 1.2 Xóa tất cả SessionAnswers của session cũ
+            var oldAnswers = await _unitOfWork.SessionAnswers
+                .FindAsync(a => a.SessionId == oldSession.Id);
+
+            foreach (var answer in oldAnswers)
+            {
+                await _unitOfWork.SessionAnswers.DeleteAsync(answer);
+                Console.WriteLine($"   ✅ Deleted answer for question: {answer.QuestionId}");
+            }
+
+            // 1.3 Đánh dấu session cũ là Expired
+            oldSession.Status = 2; // Expired
+            await _unitOfWork.FullTestSessions.UpdateAsync(oldSession);
+
+            Console.WriteLine($"✅ Old session {oldSession.Id} marked as Expired");
+        }
+
+        // 2. Tạo hoặc lấy 4 Exercise con
         var readingId = await GetOrCreateChildExercise(fullTest.Id, 0, "Reading");
         var listeningId = await GetOrCreateChildExercise(fullTest.Id, 1, "Listening");
         var writingId = await GetOrCreateChildExercise(fullTest.Id, 2, "Writing");
@@ -58,11 +89,12 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
             await _unitOfWork.SaveChangesAsync();
         }
 
-        // 4. Tạo Session
+        // 4. Tạo Session mới
         var session = new FullTestSession
         {
             Id = Guid.NewGuid(),
             UserId = request.UserId,
+            FullTestId = request.FullTestId,  // ✅ THÊM FullTestId
             StartTime = DateTime.UtcNow,
             Status = 0,
             CurrentPart = 1,
@@ -75,12 +107,15 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
             WritingTimeSpent = 0,
             SpeakingTimeSpent = 0,
             TotalScore = 0,
+            AttemptCounted = false,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
 
         await _unitOfWork.FullTestSessions.AddAsync(session);
         await _unitOfWork.SaveChangesAsync();
+
+        Console.WriteLine($"✅ New session created: {session.Id}");
 
         // 5. Tạo response
         var parts = new List<FullTestPartDto>();
@@ -118,30 +153,28 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
     /// </summary>
     private async Task<Guid?> GetOrCreateChildExercise(Guid fullTestId, int skill, string skillName)
     {
-        // ✅ CHỈ TÌM EXERCISE CON CỦA FULL TEST NÀY
         var existing = await _unitOfWork.Exercises
             .FindAsync(e => e.FullTestId == fullTestId && e.Skill == skill && !e.IsDeleted);
 
         if (existing.Any())
             return existing.First().Id;
 
-        // Tạo mới
         var newExercise = new Exercise
         {
             Id = Guid.NewGuid(),
             Skill = skill,
             Title = $"VSTEP {skillName} Test - {DateTime.Now:yyyy-MM-dd HH:mm}",
             Description = $"Bài thi {skillName} cho Full Test",
-            FullTestId = fullTestId,  // ✅ LIÊN KẾT VỚI FULL TEST
+            FullTestId = fullTestId,
             IsFullTest = false,
             TotalParts = 1,
             TotalQuestions = 3,
             TimeLimitSeconds = skill switch
             {
-                0 => 3600,   // Reading: 60 phút
-                1 => 2100,   // Listening: 35 phút
-                2 => 3600,   // Writing: 60 phút
-                3 => 1020,   // Speaking: 17 phút
+                0 => 3600,
+                1 => 2100,
+                2 => 3600,
+                3 => 1020,
                 _ => 3600
             },
             Difficulty = 3,

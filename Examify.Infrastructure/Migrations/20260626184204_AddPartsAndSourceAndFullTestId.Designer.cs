@@ -4,6 +4,7 @@ using Examify.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Examify.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626184204_AddPartsAndSourceAndFullTestId")]
+    partial class AddPartsAndSourceAndFullTestId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -176,9 +179,6 @@ namespace Examify.Infrastructure.Migrations
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
-
-                    b.Property<Guid>("FullTestId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -572,8 +572,7 @@ namespace Examify.Infrastructure.Migrations
 
                     b.HasIndex("SessionId", "QuestionId")
                         .IsUnique()
-                        .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId")
-                        .HasFilter("[IsDeleted] = 0");
+                        .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId");
 
                     b.ToTable("SessionAnswers", (string)null);
                 });

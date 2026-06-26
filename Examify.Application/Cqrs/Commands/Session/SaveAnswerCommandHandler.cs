@@ -1,14 +1,17 @@
-﻿// Examify.Application/Cqrs/Commands/Session/SaveAnswerCommandHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Commands/Session/SaveAnswerCommandHandler.cs
+
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace Examify.Application.Cqrs.Commands.Session;
 
 public sealed class SaveAnswerCommandHandler : IRequestHandler<SaveAnswerCommand, bool>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
     public SaveAnswerCommandHandler(IUnitOfWork unitOfWork)
     {
@@ -17,74 +20,96 @@ public sealed class SaveAnswerCommandHandler : IRequestHandler<SaveAnswerCommand
 
     public async Task<bool> Handle(SaveAnswerCommand request, CancellationToken cancellationToken)
     {
-        // 1. Kiểm tra session tồn tại
-        var session = await _unitOfWork.FullTestSessions.GetByIdAsync(request.SessionId);
-        if (session is null)
-            throw new NotFoundException("Session not found");
+        // ✅ SỬ DỤNG SEMAPHORE ĐỂ TRÁNH RACE CONDITION
+        await _semaphore.WaitAsync(cancellationToken);
 
-        // 2. Kiểm tra session chưa hoàn thành
-        if (session.Status == 1)
-            throw new BadRequestException("Session already completed, cannot save answers");
-
-        // 3. Lấy tất cả answers hiện có
-        var existingAnswers = await _unitOfWork.SessionAnswers
-            .FindAsync(a => a.SessionId == request.SessionId && !a.IsSubmitted);
-
-        var existingDict = existingAnswers.ToDictionary(a => a.QuestionId);
-
-        var answersToAdd = new List<SessionAnswer>();
-
-        foreach (var answerDto in request.Answers)
+        try
         {
-            // ✅ BỎ QUA NẾU QUESTIONID RỖNG
-            if (answerDto.QuestionId == Guid.Empty)
-                continue;
-
-            // ✅ KHÔNG KIỂM TRA QUESTIONID CÓ TỒN TẠI TRONG DB KHÔNG
-            // Chỉ cần lưu vào SessionAnswers
-
-            if (existingDict.TryGetValue(answerDto.QuestionId, out var existing))
+            // 1. Kiểm tra session tồn tại
+            var session = await _unitOfWork.FullTestSessions.GetByIdAsync(request.SessionId);
+            if (session is null)
+                throw new NotFoundException("Session not found");
+            // ✅ BỎ QUA NẾU SESSION ĐÃ COMPLETED (KHÔNG NÉM LỖI)
+            if (session.Status == 1)
             {
-                // UPDATE
-                existing.UserAnswer = answerDto.UserAnswer ?? existing.UserAnswer;
-                existing.AudioUrl = answerDto.AudioUrl ?? existing.AudioUrl;
-                existing.Transcript = answerDto.Transcript ?? existing.Transcript;
-                existing.SkillType = answerDto.SkillType;  // ✅ THÊM
-                existing.UpdatedAt = DateTime.UtcNow;
-                existing.IsSubmitted = false;
-
-                await _unitOfWork.SessionAnswers.UpdateAsync(existing);
+                Console.WriteLine($"⚠️ Session {session.Id} already completed, skipping save");
+                return true;
             }
-            else
+
+            // 2. Kiểm tra session chưa hoàn thành
+            if (session.Status == 1)
+                throw new BadRequestException("Session already completed, cannot save answers");
+
+            // 3. Lấy tất cả answers hiện có (chỉ lấy những câu chưa submit)
+            var existingAnswers = await _unitOfWork.SessionAnswers
+                .FindAsync(a => a.SessionId == request.SessionId && !a.IsSubmitted && !a.IsDeleted);
+
+            var existingDict = existingAnswers.ToDictionary(a => a.QuestionId);
+
+            var answersToAdd = new List<SessionAnswer>();
+
+            foreach (var answerDto in request.Answers)
             {
-                // INSERT
-                var newAnswer = new SessionAnswer
+                // Bỏ qua nếu QuestionId rỗng
+                if (answerDto.QuestionId == Guid.Empty)
+                    continue;
+
+                if (existingDict.TryGetValue(answerDto.QuestionId, out var existing))
                 {
-                    Id = Guid.NewGuid(),
-                    SessionId = request.SessionId,
-                    QuestionId = answerDto.QuestionId,
-                    SkillType = answerDto.SkillType,
-                    UserAnswer = answerDto.UserAnswer,
-                    AudioUrl = answerDto.AudioUrl,
-                    Transcript = answerDto.Transcript,
-                    UpdatedAt = DateTime.UtcNow,
-                    IsSubmitted = false,
-                    IsDeleted = false  // ✅ THÊM
-                };
+                    // ✅ UPDATE
+                    existing.UserAnswer = answerDto.UserAnswer ?? existing.UserAnswer;
+                    existing.AudioUrl = answerDto.AudioUrl ?? existing.AudioUrl;
+                    existing.Transcript = answerDto.Transcript ?? existing.Transcript;
+                    existing.SkillType = answerDto.SkillType;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    existing.IsSubmitted = false;
 
-                answersToAdd.Add(newAnswer);
+                    await _unitOfWork.SessionAnswers.UpdateAsync(existing);
+                    Console.WriteLine($"✅ Updated answer for question: {answerDto.QuestionId}");
+                }
+                else
+                {
+                    // ✅ INSERT
+                    var newAnswer = new SessionAnswer
+                    {
+                        Id = Guid.NewGuid(),
+                        SessionId = request.SessionId,
+                        QuestionId = answerDto.QuestionId,
+                        SkillType = answerDto.SkillType,
+                        UserAnswer = answerDto.UserAnswer,
+                        AudioUrl = answerDto.AudioUrl,
+                        Transcript = answerDto.Transcript,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        IsSubmitted = false,
+                        IsDeleted = false
+                    };
+
+                    answersToAdd.Add(newAnswer);
+                    Console.WriteLine($"✅ Prepared insert for question: {answerDto.QuestionId}");
+                }
             }
-        }
 
-        if (answersToAdd.Any())
-        {
-            foreach (var answer in answersToAdd)
+            // ✅ BULK INSERT (chỉ insert những câu chưa có)
+            if (answersToAdd.Any())
             {
-                await _unitOfWork.SessionAnswers.AddAsync(answer);
-            }
-        }
+                // ✅ KIỂM TRA LẠI TRƯỚC KHI INSERT
+                var existingIds = existingDict.Keys.ToHashSet();
+                var toInsert = answersToAdd.Where(a => !existingIds.Contains(a.QuestionId)).ToList();
 
-        await _unitOfWork.SaveChangesAsync();
-        return true;
+                foreach (var answer in toInsert)
+                {
+                    await _unitOfWork.SessionAnswers.AddAsync(answer);
+                    Console.WriteLine($"✅ Inserted answer for question: {answer.QuestionId}");
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 }

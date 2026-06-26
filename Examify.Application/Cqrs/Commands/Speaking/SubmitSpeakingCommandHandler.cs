@@ -1,10 +1,13 @@
-﻿// Examify.Application/Cqrs/Commands/Speaking/SubmitSpeakingCommandHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Commands/Speaking/SubmitSpeakingCommandHandler.cs
+
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Submissions;
 using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace Examify.Application.Cqrs.Commands.Speaking;
 
@@ -13,19 +16,32 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAIGradingService _aiGradingService;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public SubmitSpeakingCommandHandler(
         IUnitOfWork unitOfWork,
         IAIGradingService aiGradingService,
-        IFileStorageService fileStorageService)
+        IFileStorageService fileStorageService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _aiGradingService = aiGradingService;
         _fileStorageService = fileStorageService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<SubmissionDetailDto> Handle(SubmitSpeakingCommand request, CancellationToken cancellationToken)
     {
+        // ============================================================
+        // 0. LẤY USER ID TỪ TOKEN
+        // ============================================================
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            throw new Exception("User not authenticated");
+
+        var userId = Guid.Parse(userIdClaim);
+        Console.WriteLine($"👤 User ID from token: {userId}");
+
         // ============================================================
         // 1. LẤY CÂU HỎI SPEAKING
         // ============================================================
@@ -50,7 +66,7 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
         Dictionary<Guid, string> transcripts = new();
 
         // ============================================================
-        // 4. XỬ LÝ AUDIO FILES - CHỈ DÙNG WHISPER THẬT
+        // 4. XỬ LÝ AUDIO FILES
         // ============================================================
         if (request.AudioFiles == null || request.AudioFiles.Count == 0)
         {
@@ -101,7 +117,7 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
 
             Console.WriteLine($"🎤 Audio data size: {audioData.Length} bytes for Q{question.OrderNumber}");
 
-            // ✅ GỌI WHISPER API - NÉM EXCEPTION NẾU LỖI
+            // ✅ GỌI WHISPER API
             try
             {
                 var transcript = await _aiGradingService.SpeechToTextAsync(audioData);
@@ -175,7 +191,7 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
-            UserId = request.UserId,
+            UserId = userId,  // ✅ DÙNG USER ID TỪ TOKEN
             ExerciseId = request.ExerciseId,
             SkillType = 3,
             TotalScore = (short)Math.Round(averageScore),
@@ -198,7 +214,7 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
         // ============================================================
         // 8. CẬP NHẬT SESSION (NẾU CÓ)
         // ============================================================
-        if (request.SessionId.HasValue)
+        if (request.SessionId.HasValue && request.SessionId.Value != Guid.Empty)
         {
             var session = await _unitOfWork.FullTestSessions.GetByIdAsync(request.SessionId.Value);
             if (session != null)
@@ -206,6 +222,7 @@ public sealed class SubmitSpeakingCommandHandler : IRequestHandler<SubmitSpeakin
                 session.SpeakingSubmissionId = submission.Id;
                 session.SpeakingTimeSpent = request.TimeSpentSeconds;
                 await _unitOfWork.FullTestSessions.UpdateAsync(session);
+                Console.WriteLine($"✅ Updated session {session.Id} with SpeakingSubmissionId: {submission.Id}");
             }
         }
 
