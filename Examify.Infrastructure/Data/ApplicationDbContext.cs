@@ -28,6 +28,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<Leaderboard> Leaderboards { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<FullTestSession> FullTestSessions { get; set; }
+    public DbSet<Order> Orders { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -139,6 +140,13 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
 
             entity.HasIndex(e => e.SessionId)
                   .HasDatabaseName("IX_SessionAnswers_SessionId");
+        });
+        builder.Entity<Order>(entity =>
+        {
+            entity.ToTable("Order");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.OrderCode).HasMaxLength(10);
         });
     }
 }
