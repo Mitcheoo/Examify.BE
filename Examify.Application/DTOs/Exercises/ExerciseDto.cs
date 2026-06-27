@@ -1,4 +1,5 @@
-﻿// Examify.Application/DTOs/Exercises/ExerciseDto.cs
+﻿// 📁 Examify.Application/DTOs/Exercises/ExerciseDto.cs
+
 namespace Examify.Application.DTOs.Exercises;
 
 public class ExerciseDto
@@ -16,9 +17,9 @@ public class ExerciseDto
     public int TimeLimitSeconds { get; set; }
     public int AttemptCount { get; set; }
     public bool IsFullTest { get; set; }
-
-
     public string? Source { get; set; }
+ 
+    public DateTime CreatedAt { get; set; }
 
     public List<PartDto> Parts { get; set; } = new();
     public List<ReadingQuestionDto> ReadingQuestions { get; set; } = new();
@@ -26,7 +27,6 @@ public class ExerciseDto
     public List<WritingQuestionDto> WritingQuestions { get; set; } = new();
     public List<SpeakingQuestionDto> SpeakingQuestions { get; set; } = new();
 
-    // ✅ 4 PROPERTY LIÊN KẾT CHO FULL TEST
     public Guid? ReadingExerciseId { get; set; }
     public Guid? ListeningExerciseId { get; set; }
     public Guid? WritingExerciseId { get; set; }

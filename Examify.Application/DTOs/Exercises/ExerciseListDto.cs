@@ -13,4 +13,5 @@ public class ExerciseListDto
     public int AttemptCount { get; set; }
     public bool IsCompleted { get; set; }
     public double? LastScore { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

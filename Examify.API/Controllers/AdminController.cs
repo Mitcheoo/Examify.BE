@@ -160,4 +160,37 @@ public class AdminController : ControllerBase
         var result = await _mediator.Send(new CreateSpeakingQuestionsCommand(exerciseId, dto));
         return Ok(result);
     }
+
+    /// <summary>
+    /// Upload audio file cho Listening
+    /// </summary>
+    [HttpPost("upload/audio")]
+    public async Task<IActionResult> UploadAudio(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "No file uploaded" });
+
+        // Kiểm tra định dạng
+        var allowedExtensions = new[] { ".mp3", ".wav", ".m4a", ".webm" };
+        var extension = Path.GetExtension(file.FileName).ToLower();
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new { message = "Invalid file format. Only MP3, WAV, M4A, WEBM are allowed." });
+
+        // Tạo tên file duy nhất
+        var fileName = $"{Guid.NewGuid()}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
+        var uploadPath = Path.Combine("wwwroot", "uploads", "listening-audios");
+
+        if (!Directory.Exists(uploadPath))
+            Directory.CreateDirectory(uploadPath);
+
+        var filePath = Path.Combine(uploadPath, fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var url = $"/uploads/listening-audios/{fileName}";
+        return Ok(new { url, fileName, message = "Upload successful" });
+    }
 }

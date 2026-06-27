@@ -1,4 +1,5 @@
-﻿// Examify.Application/Mappings/AutoMapperProfile.cs
+﻿// 📁 Examify.Application/Mappings/AutoMapperProfile.cs
+
 using AutoMapper;
 using Examify.Application.DTOs.Admin;
 using Examify.Application.DTOs.Exercises;
@@ -25,8 +26,9 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.ListeningExerciseId, opt => opt.MapFrom(src => src.ListeningExerciseId))
             .ForMember(dest => dest.WritingExerciseId, opt => opt.MapFrom(src => src.WritingExerciseId))
             .ForMember(dest => dest.SpeakingExerciseId, opt => opt.MapFrom(src => src.SpeakingExerciseId))
-            //thêm sourrce
-         .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source ?? "Hệ thống"));
+            .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source ?? "Hệ thống"))
+            // ✅ THÊM DÒNG NÀY
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
 
         // ✅ Exercise -> ExerciseDetailDto
         CreateMap<Exercise, ExerciseDetailDto>()
@@ -38,14 +40,18 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.SpeakingExerciseId, opt => opt.MapFrom(src => src.SpeakingExerciseId))
             .ForMember(dest => dest.Questions, opt => opt.Ignore())
             .ForMember(dest => dest.WritingQuestions, opt => opt.Ignore())
-            .ForMember(dest => dest.SpeakingQuestions, opt => opt.Ignore());
+            .ForMember(dest => dest.SpeakingQuestions, opt => opt.Ignore())
+            // ✅ THÊM DÒNG NÀY
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
 
         // ✅ Exercise -> ExerciseListDto
         CreateMap<Exercise, ExerciseListDto>()
             .ForMember(dest => dest.SkillName,
                 opt => opt.MapFrom(src => GetSkillName(src.Skill)))
             .ForMember(dest => dest.IsCompleted, opt => opt.Ignore())
-            .ForMember(dest => dest.LastScore, opt => opt.Ignore());
+            .ForMember(dest => dest.LastScore, opt => opt.Ignore())
+            // ✅ THÊM DÒNG NÀY
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
 
         // ========== MAPPING CHO CÂU HỎI ==========
         CreateMap<ReadingQuestion, ReadingQuestionDto>();
@@ -57,19 +63,16 @@ public class AutoMapperProfile : Profile
         CreateMap<Part, PartDto>();
 
         // ========== MAPPING CHO SUBMISSION ==========
-        // ✅ Submission -> SubmissionHistoryDto
         CreateMap<Submission, SubmissionHistoryDto>()
             .ForMember(dest => dest.ExerciseTitle,
                 opt => opt.MapFrom(src => src.Exercise != null ? src.Exercise.Title : string.Empty))
             .ForMember(dest => dest.SkillName,
                 opt => opt.MapFrom(src => GetSkillName(src.SkillType)));
 
-        // ✅ Submission -> SubmissionDetailDto
         CreateMap<Submission, SubmissionDetailDto>()
             .ForMember(dest => dest.Details, opt => opt.Ignore())
             .ForMember(dest => dest.AiFeedback, opt => opt.Ignore());
 
-        // ✅ SubmissionDetail -> SubmissionAnswerDetailDto
         CreateMap<SubmissionDetail, SubmissionAnswerDetailDto>()
             .ForMember(dest => dest.QuestionText, opt => opt.Ignore())
             .ForMember(dest => dest.Explanation, opt => opt.Ignore());

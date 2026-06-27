@@ -1,4 +1,5 @@
-﻿// Examify.Application/Cqrs/Commands/Admin/Question/CreateReadingQuestionsCommandHandler.cs
+﻿// 📁 Examify.Application/Cqrs/Commands/Admin/Question/CreateReadingQuestionsCommandHandler.cs
+
 using MediatR;
 using AutoMapper;
 using Examify.Core.Entities;
@@ -32,8 +33,17 @@ public class CreateReadingQuestionsCommandHandler : IRequestHandler<CreateReadin
 
         var createdQuestions = new List<ReadingQuestion>();
 
+        // ✅ LƯU PASSAGE THEO PART
+        var passagesByPart = new Dictionary<int, string>();
+
         foreach (var dto in request.Dto.Questions)
         {
+            // ✅ LƯU PASSAGE THEO PART (KIỂM TRA NULL)
+            if (!string.IsNullOrEmpty(dto.Passage) && !passagesByPart.ContainsKey(dto.PartNumber))
+            {
+                passagesByPart[dto.PartNumber] = dto.Passage;
+            }
+
             var question = new ReadingQuestion
             {
                 Id = Guid.NewGuid(),
@@ -51,6 +61,35 @@ public class CreateReadingQuestionsCommandHandler : IRequestHandler<CreateReadin
 
             await _unitOfWork.ReadingQuestions.AddAsync(question);
             createdQuestions.Add(question);
+        }
+
+        // ✅ TẠO HOẶC CẬP NHẬT PARTS
+        foreach (var part in passagesByPart)
+        {
+            var existingPart = (await _unitOfWork.Parts
+                .FindAsync(p => p.ExerciseId == request.ExerciseId && p.PartNumber == part.Key && !p.IsDeleted))
+                .FirstOrDefault();
+
+            if (existingPart == null)
+            {
+                var newPart = new Part
+                {
+                    Id = Guid.NewGuid(),
+                    ExerciseId = request.ExerciseId,
+                    PartNumber = part.Key,
+                    Title = $"Part {part.Key}",
+                    Passage = part.Value,
+                    CreatedAt = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+                await _unitOfWork.Parts.AddAsync(newPart);
+            }
+            else
+            {
+                existingPart.Passage = part.Value;
+                existingPart.UpdatedAt = DateTime.UtcNow;
+                await _unitOfWork.Parts.UpdateAsync(existingPart);
+            }
         }
 
         // Cập nhật TotalQuestions
