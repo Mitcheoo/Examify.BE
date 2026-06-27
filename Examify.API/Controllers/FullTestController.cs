@@ -1,9 +1,10 @@
 ﻿// Examify.API/Controllers/FullTestController.cs
+using Examify.Application.Cqrs.Commands.FullTest;
+using Examify.Application.Cqrs.Queries.FullTest;
+using Examify.Application.DTOs.FullTest;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using Examify.Application.Cqrs.Commands.FullTest;
-using Examify.Application.DTOs.FullTest;
 using System.Security.Claims;
 
 namespace Examify.API.Controllers;
@@ -11,7 +12,7 @@ namespace Examify.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FullTestController : ControllerBase
+public sealed class FullTestController : ControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -20,42 +21,38 @@ public class FullTestController : ControllerBase
         _mediator = mediator;
     }
 
-    /// <summary>
-    /// Bắt đầu bài thi thử full test (4 kỹ năng)
-    /// </summary>
+    // Examify.API/Controllers/FullTestController.cs
+
     [HttpPost("start")]
-    public async Task<ActionResult<StartFullTestResponse>> Start()
+    public async Task<ActionResult<StartFullTestResponse>> Start([FromBody] StartFullTestRequest request)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _mediator.Send(new StartFullTestCommand(userId));
+        var result = await _mediator.Send(new StartFullTestCommand(userId, request.FullTestId));
+        return Ok(result);
+    }   
+
+    [HttpGet("{id}/status")]
+    public async Task<ActionResult<FullTestStatusDto>> GetFullTestStatus(Guid id)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var query = new GetFullTestStatusQuery(id, userId);
+        var result = await _mediator.Send(query);
         return Ok(result);
     }
 
-    /// <summary>
-    /// Lưu kết quả từng phần (Reading, Listening, Writing, Speaking)
-    /// </summary>
-    [HttpPost("save-part")]
-    public async Task<IActionResult> SavePart([FromBody] SavePartRequest request)
+    [HttpGet("{id}/result")]
+    public async Task<ActionResult<FullTestResultDetailDto>> GetFullTestResult(Guid id)
     {
-        var command = new SavePartCommand(
-            request.SessionId,
-            request.PartNumber,
-            request.Answers,
-            request.EssayText,
-            request.AudioUrl,
-            request.TimeSpentSeconds
-        );
-
-        var result = await _mediator.Send(command);
-        return Ok(new { success = result });
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var query = new GetFullTestResultQuery(id, userId);
+        var result = await _mediator.Send(query);
+        return Ok(result);
     }
 
-    /// <summary>
-    /// Nộp toàn bộ bài thi và nhận kết quả
-    /// </summary>
     [HttpPost("submit")]
-    public async Task<ActionResult<FullTestResultResponse>> Submit([FromBody] SubmitFullTestCommand command)
+    public async Task<ActionResult<FullTestResultResponse>> Submit([FromBody] SubmitFullTestRequest request)
     {
+        var command = new SubmitFullTestCommand(request.SessionId);
         var result = await _mediator.Send(command);
         return Ok(result);
     }

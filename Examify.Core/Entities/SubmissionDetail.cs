@@ -1,4 +1,4 @@
-// Examify.Core/Entities/SubmissionDetail.cs
+﻿// Examify.Core/Entities/SubmissionDetail.cs
 namespace Examify.Core.Entities;
 
 public class SubmissionDetail : BaseEntity
@@ -13,7 +13,7 @@ public class SubmissionDetail : BaseEntity
     public short PointEarned { get; set; }
     public double? AiScore { get; set; }
     public string? AiFeedback { get; set; }
+    public string? Explanation { get; set; }  // ✅ THÊM DÒNG NÀY
 
-    // Navigation
     public virtual Submission Submission { get; set; } = null!;
 }

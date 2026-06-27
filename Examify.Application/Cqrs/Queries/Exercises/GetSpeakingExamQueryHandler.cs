@@ -24,8 +24,9 @@ public class GetSpeakingExamQueryHandler : IRequestHandler<GetSpeakingExamQuery,
         if (exercise == null)
             throw new NotFoundException("Exercise not found");
 
+        // ✅ THÊM !q.IsDeleted
         var questions = await _unitOfWork.SpeakingQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId);
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
 
         var questionList = questions.ToList();
 

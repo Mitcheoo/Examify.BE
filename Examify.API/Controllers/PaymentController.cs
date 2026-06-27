@@ -1,11 +1,18 @@
 
+using Examify.Core.Entities;
+using Examify.Core.Interfaces;
+using Examify.Infrastructure.Data;
+using Examify.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace YourApp.Controllers;
 
@@ -15,18 +22,26 @@ public class PaymentController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly PayPalOptions _options;
+    private readonly ApplicationDbContext _context;
 
     public PaymentController(
         IHttpClientFactory httpClientFactory,
-        IOptions<PayPalOptions> options)
+        IOptions<PayPalOptions> options,
+        ApplicationDbContext context)
     {
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
+        _context = context;
     }
 
+    [Authorize]
     [HttpPost("create-order")]
     public async Task<IActionResult> CreateOrder([FromBody] CreatePayPalOrderRequest request)
     {
+        var userIdValue =
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            User.FindFirstValue("sub");
+
         if (string.IsNullOrWhiteSpace(request.OrderCode))
             return BadRequest("OrderCode is required.");
 
@@ -36,6 +51,12 @@ public class PaymentController : ControllerBase
         var currency = string.IsNullOrWhiteSpace(request.Currency)
             ? "USD"
             : request.Currency.Trim().ToUpperInvariant();
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return Unauthorized("UserId in the token is invalid.");
+        var existingOrder = await _context.Orders.FirstOrDefaultAsync(x => x.ExerciseId == request.ExerciseId && x.UserId == userId);
+        if (string.Equals(existingOrder?.Status, "Complete", StringComparison.OrdinalIgnoreCase))
+            return BadRequest("An order for this exercise already exists.");
 
         var accessToken = await GetAccessTokenAsync();
 
@@ -100,6 +121,17 @@ public class PaymentController : ControllerBase
                     StringComparison.OrdinalIgnoreCase))
             ?["href"]?.GetValue<string>();
 
+        var order = new Order
+        {
+            UserId = userId,
+            ExerciseId = request.ExerciseId,
+            OrderCode = request.OrderCode,
+            Amount = amountValue,
+        };
+
+        var Order = await _context.Orders.AddAsync(order);
+        await _context.SaveChangesAsync();
+
         return Ok(new CreatePayPalOrderResponse
         {
             OrderCode = request.OrderCode,
@@ -109,41 +141,257 @@ public class PaymentController : ControllerBase
         });
     }
 
-    [HttpPost("capture-order/{paypalOrderId}")]
-    public async Task<IActionResult> CaptureOrder(string paypalOrderId)
+    [Authorize]
+    [HttpPost("capture-order/{orderCode}")]
+    public async Task<IActionResult> CaptureOrder(
+    string orderCode,
+    [FromBody] CapturePayPalOrderRequest request)
     {
-        if (string.IsNullOrWhiteSpace(paypalOrderId))
+        if (string.IsNullOrWhiteSpace(orderCode))
+            return BadRequest("OrderCode is required.");
+
+        if (string.IsNullOrWhiteSpace(request.PayPalOrderId))
             return BadRequest("PayPal order id is required.");
+
+        var userIdValue =
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            User.FindFirstValue("sub");
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return Unauthorized("UserId in the token is invalid.");
+
+        orderCode = orderCode.Trim();
+        var paypalOrderId = request.PayPalOrderId.Trim();
+
+        var order = await _context.Orders.FirstOrDefaultAsync(x =>
+            x.OrderCode == orderCode &&
+            x.UserId == userId);
+
+        if (order is null)
+            return NotFound("Order not found.");
+
+        if (string.Equals(
+                order.Status,
+                "Complete",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Order has already been completed.");
+        }
 
         var accessToken = await GetAccessTokenAsync();
 
-        using var httpRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            $"{_options.BaseUrl}/v2/checkout/orders/{paypalOrderId}/capture");
+        using var getOrderRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{_options.BaseUrl}/v2/checkout/orders/" +
+            $"{Uri.EscapeDataString(paypalOrderId)}");
 
-        httpRequest.Headers.Authorization =
+        getOrderRequest.Headers.Authorization =
             new AuthenticationHeaderValue("Bearer", accessToken);
 
-        httpRequest.Headers.Add("PayPal-Request-Id", $"capture-{paypalOrderId}");
-        httpRequest.Headers.Add("Prefer", "return=representation");
+        var getOrderResult =
+            await SendPayPalRequestAsync(getOrderRequest);
 
-        httpRequest.Content = new StringContent(
+        if (!getOrderResult.IsSuccess)
+        {
+            return StatusCode(
+                getOrderResult.StatusCode,
+                getOrderResult.Body);
+        }
+
+        var paypalOrderJson = JsonNode.Parse(getOrderResult.Body);
+
+        if (paypalOrderJson is null)
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                "Invalid response from PayPal.");
+        }
+
+        var paypalStatus =
+            paypalOrderJson["status"]?.GetValue<string>();
+
+        var purchaseUnit =
+            paypalOrderJson["purchase_units"]?[0];
+
+        var referenceId =
+            purchaseUnit?["reference_id"]?.GetValue<string>();
+
+        var customId =
+            purchaseUnit?["custom_id"]?.GetValue<string>();
+
+        var invoiceId =
+            purchaseUnit?["invoice_id"]?.GetValue<string>();
+
+        var paypalAmount =
+            purchaseUnit?["amount"]?["value"]?.GetValue<string>();
+
+        var orderCodeMatched =
+            string.Equals(
+                referenceId,
+                order.OrderCode,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                customId,
+                order.OrderCode,
+                StringComparison.Ordinal) &&
+            string.Equals(
+                invoiceId,
+                order.OrderCode,
+                StringComparison.Ordinal);
+
+        if (!orderCodeMatched)
+        {
+            return BadRequest(
+                "PayPal order does not match the system order.");
+        }
+
+        var databaseAmountValid = decimal.TryParse(
+            order.Amount,
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture,
+            out var databaseAmount);
+
+        var paypalAmountValid = decimal.TryParse(
+            paypalAmount,
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture,
+            out var actualPayPalAmount);
+
+        if (!databaseAmountValid ||
+            !paypalAmountValid ||
+            databaseAmount != actualPayPalAmount)
+        {
+            return BadRequest(new
+            {
+                Message = "PayPal amount does not match the order amount.",
+                OrderAmount = order.Amount,
+                PayPalAmount = paypalAmount
+            });
+        }
+
+        if (string.Equals(
+                paypalStatus,
+                "COMPLETED",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var existingCapture =
+                purchaseUnit?["payments"]?["captures"]?[0];
+
+            var existingCaptureId =
+                existingCapture?["id"]?.GetValue<string>();
+
+            var existingCaptureStatus =
+                existingCapture?["status"]?.GetValue<string>();
+
+            if (string.Equals(
+                    existingCaptureStatus,
+                    "COMPLETED",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                order.Status = "Complete";
+                await _context.SaveChangesAsync();
+
+                return Ok(new CapturePayPalOrderResponse
+                {
+                    PayPalOrderId = paypalOrderId,
+                    Status = paypalStatus,
+                    CaptureId = existingCaptureId,
+                    CaptureStatus = existingCaptureStatus,
+                    RawResponse = paypalOrderJson
+                });
+            }
+        }
+
+        if (!string.Equals(
+                paypalStatus,
+                "APPROVED",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                Message = "PayPal order has not been approved.",
+                PayPalStatus = paypalStatus
+            });
+        }
+
+        using var captureRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{_options.BaseUrl}/v2/checkout/orders/" +
+            $"{Uri.EscapeDataString(paypalOrderId)}/capture");
+
+        captureRequest.Headers.Authorization =
+            new AuthenticationHeaderValue(
+                "Bearer",
+                accessToken);
+
+        captureRequest.Headers.Add(
+            "PayPal-Request-Id",
+            $"capture-{paypalOrderId}");
+
+        captureRequest.Headers.Add(
+            "Prefer",
+            "return=representation");
+
+        captureRequest.Content = new StringContent(
             "{}",
             Encoding.UTF8,
             "application/json");
 
-        var result = await SendPayPalRequestAsync(httpRequest);
+        var captureResult =
+            await SendPayPalRequestAsync(captureRequest);
 
-        if (!result.IsSuccess)
-            return StatusCode(result.StatusCode, result.Body);
+        if (!captureResult.IsSuccess)
+        {
+            return StatusCode(
+                captureResult.StatusCode,
+                captureResult.Body);
+        }
 
-        var json = JsonNode.Parse(result.Body);
+        var captureJson = JsonNode.Parse(captureResult.Body);
 
-        var status = json?["status"]?.GetValue<string>();
+        if (captureJson is null)
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                "Invalid capture response from PayPal.");
+        }
 
-        var capture = json?["purchase_units"]?[0]?["payments"]?["captures"]?[0];
-        var captureId = capture?["id"]?.GetValue<string>();
-        var captureStatus = capture?["status"]?.GetValue<string>();
+        var status =
+            captureJson["status"]?.GetValue<string>();
+
+        var capture =
+            captureJson["purchase_units"]?[0]?
+                ["payments"]?["captures"]?[0];
+
+        var captureId =
+            capture?["id"]?.GetValue<string>();
+
+        var captureStatus =
+            capture?["status"]?.GetValue<string>();
+
+        var isCompleted =
+            string.Equals(
+                status,
+                "COMPLETED",
+                StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(
+                captureStatus,
+                "COMPLETED",
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!isCompleted)
+        {
+            return BadRequest(new
+            {
+                Message = "PayPal payment was not completed.",
+                Status = status,
+                CaptureStatus = captureStatus
+            });
+        }
+
+        order.Status = "Complete";
+
+        await _context.SaveChangesAsync();
 
         return Ok(new CapturePayPalOrderResponse
         {
@@ -151,7 +399,7 @@ public class PaymentController : ControllerBase
             Status = status,
             CaptureId = captureId,
             CaptureStatus = captureStatus,
-            RawResponse = json
+            RawResponse = captureJson
         });
     }
 
@@ -217,6 +465,7 @@ public class PayPalOptions
 
 public class CreatePayPalOrderRequest
 {
+    public Guid ExerciseId { get; set; }
     public string OrderCode { get; set; } = "";
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = "USD";
@@ -244,4 +493,9 @@ public class PayPalHttpResult
     public bool IsSuccess { get; set; }
     public int StatusCode { get; set; }
     public string Body { get; set; } = "";
+}
+
+public class CapturePayPalOrderRequest
+{
+    public string PayPalOrderId { get; set; } = string.Empty;
 }
