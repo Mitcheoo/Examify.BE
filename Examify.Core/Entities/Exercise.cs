@@ -17,6 +17,8 @@ public class Exercise : BaseEntity
     public int AttemptCount { get; set; } = 0;
 
     public Guid? FullTestId { get; set; }  // Liên kết Full Test
+    public bool IsFree { get; set; } = true;    // Miễn phí?
+    public decimal Price { get; set; } = 0;      // Giá (VND)
 
     public string? Source { get; set; } // nguồn đề ở đâu
 

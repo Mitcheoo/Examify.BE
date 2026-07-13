@@ -1,17 +1,18 @@
 ﻿// Examify.API/Controllers/AdminController.cs
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using MediatR;
 using AutoMapper;  // ✅ THÊM DÒNG NÀY
 using Examify.Application.Cqrs.Commands.Admin.Exercise;
 using Examify.Application.Cqrs.Commands.Admin.FullTest;
+using Examify.Application.Cqrs.Commands.Admin.Part;
 using Examify.Application.Cqrs.Commands.Admin.Question;
 using Examify.Application.Cqrs.Queries.Exercises;
 using Examify.Application.DTOs.Admin;
 using Examify.Application.DTOs.Exercises;
 using Examify.Core.Entities;
-using Examify.Core.Interfaces;
 using Examify.Core.Exceptions;
+using Examify.Core.Interfaces;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Examify.API.Controllers;
 
@@ -158,6 +159,14 @@ public class AdminController : ControllerBase
         [FromBody] CreateSpeakingQuestionsDto dto)
     {
         var result = await _mediator.Send(new CreateSpeakingQuestionsCommand(exerciseId, dto));
+        return Ok(result);
+    }
+    [HttpPost("exercises/{exerciseId}/parts")]
+    public async Task<ActionResult<PartDto>> CreatePart(
+    Guid exerciseId,
+    [FromBody] CreatePartDto dto)
+    {
+        var result = await _mediator.Send(new CreatePartCommand(exerciseId, dto));
         return Ok(result);
     }
 

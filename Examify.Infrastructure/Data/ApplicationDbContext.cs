@@ -25,11 +25,14 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<SubmissionDetail> SubmissionDetails { get; set; }
     public DbSet<Wallet> Wallets { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<PurchasedExercise> PurchasedExercises { get; set; }
     public DbSet<Bookmark> Bookmarks { get; set; }
     public DbSet<Leaderboard> Leaderboards { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<FullTestSession> FullTestSessions { get; set; }
     public DbSet<SessionAnswer> SessionAnswers { get; set; } // ✅ THÊM DbSet NÀY
+    public DbSet<VocabularyWord> VocabularyWords { get; set; }
+    public DbSet<VocabularyProgress> VocabularyProgress { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -60,6 +63,12 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
                   .WithMany()
                   .HasForeignKey(e => e.SpeakingExerciseId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.Property(e => e.IsFree)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.Price)
+                  .HasPrecision(18, 2)
+                  .HasDefaultValue(0);
         });
 
         // Cấu hình Part
@@ -71,9 +80,94 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
                   .WithMany(e => e.Parts)
                   .HasForeignKey(e => e.ExerciseId);
         });
+        builder.Entity<VocabularyWord>(entity =>
+        {
+            entity.ToTable("VocabularyWords");
+            entity.HasKey(e => e.Id);
 
-        // Cấu hình Full Test Session
-        builder.Entity<FullTestSession>(entity =>
+            entity.Property(e => e.Word)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(e => e.Meaning)
+                  .IsRequired()
+                  .HasMaxLength(500);
+
+            entity.Property(e => e.Example)
+                  .IsRequired()
+                  .HasMaxLength(1000);
+
+            entity.Property(e => e.Pronunciation)
+                  .HasMaxLength(50);
+
+            entity.Property(e => e.PartOfSpeech)
+                  .HasMaxLength(50);
+
+            entity.Property(e => e.Level)
+                  .HasMaxLength(10)
+                  .HasDefaultValue("B1");
+
+            entity.Property(e => e.Topic)
+                  .HasMaxLength(50);
+
+            entity.Property(e => e.AudioUrl)
+                  .HasMaxLength(500);
+
+            entity.Property(e => e.ImageUrl)
+                  .HasMaxLength(500);
+
+            entity.Property(e => e.VietnameseExample)
+                  .HasMaxLength(500);
+
+            entity.HasIndex(e => e.Word).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(e => e.Level);
+            entity.HasIndex(e => e.Topic);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        builder.Entity<VocabularyProgress>(entity =>
+        {
+            entity.ToTable("VocabularyProgress");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.IsMastered)
+                  .HasDefaultValue(false);
+
+            entity.Property(e => e.ReviewCount)
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.StreakCount)
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.CorrectCount)
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.IncorrectCount)
+                  .HasDefaultValue(0);
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.VocabularyWord)
+                  .WithMany(w => w.Progress)
+                  .HasForeignKey(e => e.VocabularyWordId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.VocabularyWordId })
+                  .IsUnique()
+                  .HasFilter("[IsDeleted] = 0");
+
+            entity.HasIndex(e => e.IsMastered);
+            entity.HasIndex(e => e.NextReviewAt);
+            entity.HasIndex(e => e.LastReviewedAt);
+            entity.HasIndex(e => e.UserId);
+        });
+    
+
+    // Cấu hình Full Test Session
+    builder.Entity<FullTestSession>(entity =>
         {
             entity.ToTable("FullTestSessions");
             entity.HasKey(e => e.Id);
@@ -146,6 +240,120 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
 
             entity.HasIndex(e => e.SessionId)
                   .HasDatabaseName("IX_SessionAnswers_SessionId");
+        });
+        builder.Entity<Wallet>(entity =>
+        {
+            entity.ToTable("Wallets");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Balance)
+                  .HasPrecision(18, 2)
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.TotalDeposited)
+                  .HasPrecision(18, 2)
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.TotalSpent)
+                  .HasPrecision(18, 2)
+                  .HasDefaultValue(0);
+
+            entity.HasOne(e => e.User)
+                  .WithOne(u => u.Wallet)
+                  .HasForeignKey<Wallet>(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
+
+        // ============================================================
+        // ✅ CẤU HÌNH TRANSACTION (THÊM MỚI)
+        // ============================================================
+        builder.Entity<Transaction>(entity =>
+        {
+            entity.ToTable("Transactions");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Amount)
+                  .HasPrecision(18, 2)
+                  .IsRequired();
+
+            entity.Property(e => e.BalanceBefore)
+                  .HasPrecision(18, 2)
+                  .IsRequired();
+
+            entity.Property(e => e.BalanceAfter)
+                  .HasPrecision(18, 2)
+                  .IsRequired();
+
+            entity.Property(e => e.Type)
+                  .HasMaxLength(20)
+                  .IsRequired();
+
+            entity.Property(e => e.Status)
+                  .HasMaxLength(20)
+                  .IsRequired()
+                  .HasDefaultValue("Pending");
+
+            entity.Property(e => e.PaymentMethod)
+                  .HasMaxLength(20);
+
+            entity.Property(e => e.PayPalOrderId)
+                  .HasMaxLength(100);
+
+            entity.Property(e => e.PayPalCaptureId)
+                  .HasMaxLength(100);
+
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.Transactions)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Wallet)
+                  .WithMany(w => w.Transactions)
+                  .HasForeignKey(e => e.WalletId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Exercise)
+                  .WithMany()
+                  .HasForeignKey(e => e.ExerciseId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.PayPalOrderId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // ============================================================
+        // ✅ CẤU HÌNH PURCHASED EXERCISE (THÊM MỚI)
+        // ============================================================
+        builder.Entity<PurchasedExercise>(entity =>
+        {
+            entity.ToTable("PurchasedExercises");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.PaidAmount)
+                  .HasPrecision(18, 2)
+                  .IsRequired();
+
+            entity.Property(e => e.PurchasedAt)
+                  .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Exercise)
+                  .WithMany()
+                  .HasForeignKey(e => e.ExerciseId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.ExerciseId })
+                  .IsUnique()
+                  .HasFilter("[IsDeleted] = 0");
         });
     }
 }

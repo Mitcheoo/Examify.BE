@@ -5,7 +5,9 @@ using Examify.Application.DTOs.Admin;
 using Examify.Application.DTOs.Exercises;
 using Examify.Application.DTOs.Session;
 using Examify.Application.DTOs.Submissions;
+using Examify.Application.DTOs.Vocabulary;
 using Examify.Core.Entities;
+using Examify.Core.Enums;
 
 namespace Examify.Application.Mappings;
 
@@ -29,7 +31,10 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source ?? "Hệ thống"))
             // ✅ THÊM DÒNG NÀY
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
-
+        CreateMap<Submission, MySubmissionItemDto>()
+          .ForMember(dest => dest.SubmissionId, opt => opt.MapFrom(src => src.Id))
+          .ForMember(dest => dest.SkillName, opt => opt.MapFrom(src => ((SkillType)src.SkillType).ToString()))
+        .ForMember(dest => dest.ExerciseTitle, opt => opt.MapFrom(src => src.Exercise.Title));
         // ✅ Exercise -> ExerciseDetailDto
         CreateMap<Exercise, ExerciseDetailDto>()
             .ForMember(dest => dest.SkillName,
@@ -91,11 +96,33 @@ public class AutoMapperProfile : Profile
         CreateMap<UpdateExerciseDto, Exercise>();
         CreateMap<CreateFullTestDto, Exercise>();
 
+        CreateMap<Submission, AdminSubmissionDto>()
+    .ForMember(dest => dest.UserName, opt => opt.Ignore())
+    .ForMember(dest => dest.UserEmail, opt => opt.Ignore())
+    .ForMember(dest => dest.ExerciseTitle, opt => opt.Ignore())
+    .ForMember(dest => dest.SkillName, opt => opt.Ignore())
+    .ForMember(dest => dest.TimeSpentFormatted, opt => opt.Ignore())
+    .ForMember(dest => dest.Status, opt => opt.Ignore());
+
         // ========== MAPPING CHO CÂU HỎI ADMIN ==========
         CreateMap<CreateReadingQuestionDto, ReadingQuestion>();
         CreateMap<CreateListeningQuestionDto, ListeningQuestion>();
         CreateMap<CreateWritingQuestionDto, WritingQuestion>();
         CreateMap<CreateSpeakingQuestionDto, SpeakingQuestion>();
+        CreateMap<VocabularyWord, VocabularyWordDto>()
+            .ForMember(dest => dest.IsMastered, opt => opt.Ignore())
+            .ForMember(dest => dest.ReviewCount, opt => opt.Ignore())
+            .ForMember(dest => dest.LastReviewedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.NextReviewAt, opt => opt.Ignore());
+
+        CreateMap<CreateVocabularyWordDto, VocabularyWord>();
+        CreateMap<UpdateVocabularyWordDto, VocabularyWord>();
+
+        CreateMap<VocabularyProgress, VocabularyProgressDto>()
+            .ForMember(dest => dest.Word, opt => opt.Ignore())
+            .ForMember(dest => dest.Meaning, opt => opt.Ignore())
+            .ForMember(dest => dest.Pronunciation, opt => opt.Ignore())
+            .ForMember(dest => dest.MasteryPercentage, opt => opt.Ignore());
     }
 
     private static string GetSkillName(int skill)

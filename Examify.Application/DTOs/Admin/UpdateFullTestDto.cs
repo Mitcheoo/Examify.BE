@@ -11,4 +11,6 @@ public class UpdateFullTestDto
     public Guid? ListeningExerciseId { get; set; }
     public Guid? WritingExerciseId { get; set; }
     public Guid? SpeakingExerciseId { get; set; }
+    public bool IsFree { get; set; }
+    public decimal Price { get; set; }
 }

@@ -18,6 +18,9 @@ public static class DependencyInjection
         // ✅ CHỈ ĐĂNG KÝ SERVICE, KHÔNG ĐĂNG KÝ CLIENT
         services.AddScoped<IAIGradingService, AIGradingService>();
 
+        services.AddScoped<PayPalService>();
+
+
         return services;
     }
 }

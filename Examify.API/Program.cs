@@ -4,6 +4,7 @@ using Examify.Core.Interfaces;
 using Examify.Infrastructure;
 using Examify.Infrastructure.Data;
 using Examify.Infrastructure.External;
+using Examify.Infrastructure.Repositories;
 using Examify.Infrastructure.Seed;
 using Examify.Infrastructure.Services;
 using MediatR;
@@ -13,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using YourApp.Controllers;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -128,7 +129,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 // ========== EXTERNAL SERVICES ==========
-
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // Gemini API
 builder.Services.AddHttpClient<IGeminiApiClient, GeminiApiClient>();
 
@@ -144,8 +145,7 @@ builder.Services.AddHttpClient<IWhisperApiClient, WhisperApiClient>((serviceProv
     client.Timeout = TimeSpan.FromSeconds(60);
 });
 
-// DeepSeek API (Đã comment, không dùng)
-// builder.Services.AddHttpClient<IDeepSeekApiClient, DeepSeekApiClient>();
+
 builder.Services.AddHttpClient<IOpenAIClient, OpenAIClient>((serviceProvider, client) =>
 {
     var config = serviceProvider.GetRequiredService<IConfiguration>();

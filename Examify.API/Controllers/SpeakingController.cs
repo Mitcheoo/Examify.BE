@@ -4,6 +4,7 @@ using Examify.Application.Cqrs.Queries.Submissions;
 using Examify.Application.DTOs.Exercises;
 using Examify.Application.DTOs.Submissions;
 using Examify.Core.Enums;
+using Examify.Core.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,10 +18,12 @@ namespace Examify.API.Controllers;
 public class SpeakingController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IAIGradingService _aiGradingService;
 
-    public SpeakingController(IMediator mediator)
+    public SpeakingController(IMediator mediator, IAIGradingService aiGradingService)
     {
         _mediator = mediator;
+        _aiGradingService = aiGradingService;
     }
 
     /// <summary>
@@ -29,10 +32,11 @@ public class SpeakingController : ControllerBase
     [HttpGet("list")]
     public async Task<ActionResult<List<ExerciseDto>>> GetExercisesList()
     {
-        var query = new GetExercisesListQuery(SkillType.Speaking);  // ✅ SỬA
+        var query = new GetExercisesListQuery(SkillType.Speaking);
         var result = await _mediator.Send(query);
         return Ok(result);
     }
+
     /// <summary>
     /// Lấy chi tiết đề thi Speaking
     /// </summary>
@@ -60,7 +64,65 @@ public class SpeakingController : ControllerBase
     }
 
     /// <summary>
-    /// Nộp bài Speaking (upload audio - hỗ trợ nhiều file)
+    /// ✅ PREVIEW TRANSCRIPT - Kiểm tra chất lượng ghi âm trước khi nộp
+    /// </summary>
+    [HttpPost("preview-transcript")]
+
+    public async Task<ActionResult<object>> PreviewTranscript([FromForm] IFormFile audio)
+    {
+        if (audio == null || audio.Length == 0)
+        {
+            return BadRequest(new
+            {
+                transcript = "",
+                isValid = false,
+                message = "Không có file audio"
+            });
+        }
+
+        try
+        {
+            // Đọc file thành byte[]
+            using var ms = new MemoryStream();
+            await audio.CopyToAsync(ms);
+            var audioData = ms.ToArray();
+
+            // Gọi Whisper API
+            var transcript = await _aiGradingService.SpeechToTextAsync(audioData);
+
+            // Kiểm tra chất lượng transcript
+            var cleanTranscript = transcript?.Replace(".", "").Replace(" ", "").Replace(",", "").Trim() ?? "";
+            var isValid = !string.IsNullOrWhiteSpace(transcript) && cleanTranscript.Length >= 2;
+
+            // Log để debug
+            Console.WriteLine($"📝 Preview Transcript: '{transcript}'");
+            Console.WriteLine($"📊 Clean length: {cleanTranscript.Length}, IsValid: {isValid}");
+
+            return Ok(new
+            {
+                transcript = transcript ?? string.Empty,
+                length = transcript?.Length ?? 0,
+                cleanLength = cleanTranscript.Length,
+                isValid = isValid,
+                message = isValid ? "Chất lượng ghi âm tốt" : "Chất lượng ghi âm kém, vui lòng ghi âm lại"
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Preview transcript error: {ex.Message}");
+            return Ok(new
+            {
+                transcript = "",
+                length = 0,
+                cleanLength = 0,
+                isValid = false,
+                message = $"Lỗi: {ex.Message}"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Nộp bài Speaking (upload audio)
     /// </summary>
     [HttpPost("submit")]
     public async Task<ActionResult<SubmissionDetailDto>> Submit([FromForm] SubmitSpeakingCommand command)
@@ -85,7 +147,6 @@ public class SpeakingController : ControllerBase
         if (result == null)
             return NotFound(new { message = "Result not found" });
 
-        // ✅ KIỂM TRA userIdClaim TRƯỚC KHI PARSE
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim))
             return Unauthorized(new { message = "User not authenticated" });

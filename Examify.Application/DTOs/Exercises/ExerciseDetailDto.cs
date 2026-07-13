@@ -19,6 +19,8 @@ public class ExerciseDetailDto
     public int AttemptCount { get; set; }
     public bool IsPurchased { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsFree { get; set; }
+    public decimal Price { get; set; }
 
     // 4 PROPERTY LIÊN KẾT CHO FULL TEST
     public Guid? ReadingExerciseId { get; set; }

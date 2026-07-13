@@ -42,6 +42,7 @@ public class WhisperApiClient : IWhisperApiClient
     }
 
     public async Task<string> TranscribeAsync(byte[] audioData, string fileName = "audio.webm")
+
     {
         // ============================================================
         // 1. KIỂM TRA INPUT

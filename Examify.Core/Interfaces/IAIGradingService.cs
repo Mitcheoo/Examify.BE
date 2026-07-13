@@ -1,6 +1,7 @@
 ﻿// Examify.Core/Interfaces/IAIGradingService.cs
 using System.Text.Json.Serialization;
 
+
 namespace Examify.Core.Interfaces;
 
 public interface IAIGradingService
@@ -30,7 +31,39 @@ public interface IAIGradingService
 }
 
 // ============================================================
-// WRITING GRADE RESULT
+// WRITING DETAILED FEEDBACK (✅ THÊM MỚI)
+// ============================================================
+
+public class WritingDetailedFeedback
+{
+    [JsonPropertyName("issue")]
+    public string Issue { get; set; } = string.Empty;
+
+    [JsonPropertyName("sentence")]
+    public string Sentence { get; set; } = string.Empty;
+
+    [JsonPropertyName("suggestion")]
+    public string Suggestion { get; set; } = string.Empty;
+}
+
+// ============================================================
+// SPEAKING ERROR ANALYSIS (✅ THÊM MỚI)
+// ============================================================
+
+public class SpeakingErrorAnalysis
+{
+    [JsonPropertyName("transcript")]
+    public string Transcript { get; set; } = string.Empty;
+
+    [JsonPropertyName("issue")]
+    public string Issue { get; set; } = string.Empty;
+
+    [JsonPropertyName("correction")]
+    public string Correction { get; set; } = string.Empty;
+}
+
+// ============================================================
+// WRITING GRADE RESULT (✅ CẬP NHẬT - THÊM DETAILEDFEEDBACK)
 // ============================================================
 
 public class WritingGradeResult
@@ -58,10 +91,14 @@ public class WritingGradeResult
 
     [JsonPropertyName("suggestions")]
     public string Suggestions { get; set; } = string.Empty;
+
+    // ✅ THÊM MỚI: Detailed Feedback
+    [JsonPropertyName("detailedFeedback")]
+    public List<WritingDetailedFeedback> DetailedFeedback { get; set; } = new();
 }
 
 // ============================================================
-// SPEAKING GRADE RESULT
+// SPEAKING GRADE RESULT (✅ CẬP NHẬT - THÊM ERRORANALYSIS)
 // ============================================================
 
 public class SpeakingGradeResult
@@ -89,6 +126,10 @@ public class SpeakingGradeResult
 
     [JsonPropertyName("suggestions")]
     public string Suggestions { get; set; } = string.Empty;
+
+    // ✅ THÊM MỚI: Error Analysis
+    [JsonPropertyName("errorAnalysis")]
+    public List<SpeakingErrorAnalysis> ErrorAnalysis { get; set; } = new();
 }
 
 // ============================================================

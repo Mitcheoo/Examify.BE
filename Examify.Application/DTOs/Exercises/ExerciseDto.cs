@@ -1,4 +1,4 @@
-﻿// 📁 Examify.Application/DTOs/Exercises/ExerciseDto.cs
+﻿// Examify.Application/DTOs/Exercises/ExerciseDto.cs
 
 namespace Examify.Application.DTOs.Exercises;
 
@@ -20,6 +20,9 @@ public class ExerciseDto
     public string? Source { get; set; }
  
     public DateTime CreatedAt { get; set; }
+    //paymet
+    public bool IsFree { get; set; }
+    public decimal Price { get; set; }
 
     public List<PartDto> Parts { get; set; } = new();
     public List<ReadingQuestionDto> ReadingQuestions { get; set; } = new();

@@ -69,9 +69,9 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
         }
 
         // ============================================================
-        // BƯỚC 3: TẠO FULL TEST - ✅ DÙNG FULL PATH
+        // BƯỚC 3: TẠO FULL TEST - ✅ THÊM IsFree VÀ Price
         // ============================================================
-        var fullTest = new Examify.Core.Entities.Exercise  // ✅ THÊM FULL PATH
+        var fullTest = new Examify.Core.Entities.Exercise
         {
             Id = Guid.NewGuid(),
             Skill = 4,
@@ -86,6 +86,10 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false,
 
+            // ✅ THÊM 2 DÒNG NÀY
+            IsFree = request.Dto.IsFree,
+            Price = request.Dto.Price,
+
             ReadingExerciseId = readingId,
             ListeningExerciseId = listeningId,
             WritingExerciseId = writingId,
@@ -99,11 +103,11 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
     }
 
     /// <summary>
-    /// Tạo bài thi kỹ năng con - ✅ DÙNG FULL PATH
+    /// Tạo bài thi kỹ năng con
     /// </summary>
     private async Task<Guid> CreateSkillExercise(int skill, string skillName)
     {
-        var exercise = new Examify.Core.Entities.Exercise  // ✅ THÊM FULL PATH
+        var exercise = new Examify.Core.Entities.Exercise
         {
             Id = Guid.NewGuid(),
             Skill = skill,
@@ -123,7 +127,11 @@ public class CreateFullTestCommandHandler : IRequestHandler<CreateFullTestComman
             Difficulty = 2,
             AttemptCount = 0,
             CreatedAt = DateTime.UtcNow,
-            IsDeleted = false
+            IsDeleted = false,
+
+            // ✅ THÊM CHO SKILL CON (MẶC ĐỊNH MIỄN PHÍ)
+            IsFree = true,
+            Price = 0
         };
 
         await _unitOfWork.Exercises.AddAsync(exercise);

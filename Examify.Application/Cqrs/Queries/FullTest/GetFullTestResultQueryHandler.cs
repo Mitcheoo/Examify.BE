@@ -27,7 +27,6 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
         var sessions = await _unitOfWork.FullTestSessions
             .FindAsync(s => s.UserId == request.UserId && s.Status == 1);
 
-        // ✅ CHỈ LẤY SESSION CÓ ÍT NHẤT 1 SUBMISSION
         var validSession = sessions
             .Where(s => s.ReadingSubmissionId.HasValue
                      || s.ListeningSubmissionId.HasValue
@@ -38,7 +37,6 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
 
         if (validSession is null)
         {
-            // ✅ TRẢ VỀ KẾT QUẢ RỖNG NẾU CHƯA CÓ BÀI LÀM
             return new FullTestResultDetailDto
             {
                 FullTestId = fullTest.Id,
@@ -47,9 +45,7 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 TotalQuestions = 0,
                 CorrectCount = 0,
                 TotalTimeSpentSeconds = 0,
-                SkillResults = new List<SkillResultDto>(),
-                // ✅ KHÔNG DÙNG Message (vì DTO không có property này)
-                // Sẽ xử lý ở Frontend
+                SkillResults = new List<SkillResultDto>()
             };
         }
 
@@ -86,7 +82,8 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 IsCompleted = readingSubmission is not null,
                 TotalQuestions = readingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = readingSubmission?.CorrectCount ?? 0,
-                Status = readingSubmission is not null ? "completed" : "pending"
+                Status = readingSubmission is not null ? "completed" : "pending",
+                AiFeedback = readingSubmission?.AiFeedback  // ✅ THÊM DÒNG NÀY
             });
         }
         else
@@ -98,11 +95,12 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 SubmissionId = null,
                 Score = 0,
                 TimeSpentSeconds = 0,
-                SubmittedAt = null,  // ✅ Cho phép null
+                SubmittedAt = null,
                 IsCompleted = false,
                 TotalQuestions = 0,
                 CorrectCount = 0,
-                Status = "pending"
+                Status = "pending",
+                AiFeedback = null  // ✅ THÊM DÒNG NÀY
             });
         }
 
@@ -129,7 +127,8 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 IsCompleted = listeningSubmission is not null,
                 TotalQuestions = listeningSubmission?.TotalQuestions ?? 0,
                 CorrectCount = listeningSubmission?.CorrectCount ?? 0,
-                Status = listeningSubmission is not null ? "completed" : "pending"
+                Status = listeningSubmission is not null ? "completed" : "pending",
+                AiFeedback = listeningSubmission?.AiFeedback  // ✅ THÊM DÒNG NÀY
             });
         }
         else
@@ -141,11 +140,12 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 SubmissionId = null,
                 Score = 0,
                 TimeSpentSeconds = 0,
-                SubmittedAt = null,  // ✅ Cho phép null
+                SubmittedAt = null,
                 IsCompleted = false,
                 TotalQuestions = 0,
                 CorrectCount = 0,
-                Status = "pending"
+                Status = "pending",
+                AiFeedback = null  // ✅ THÊM DÒNG NÀY
             });
         }
 
@@ -172,7 +172,8 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 IsCompleted = writingSubmission is not null,
                 TotalQuestions = writingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = writingSubmission?.CorrectCount ?? 0,
-                Status = writingSubmission is not null ? "completed" : "pending"
+                Status = writingSubmission is not null ? "completed" : "pending",
+                AiFeedback = writingSubmission?.AiFeedback  // ✅ THÊM DÒNG NÀY
             });
         }
         else
@@ -184,11 +185,12 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 SubmissionId = null,
                 Score = 0,
                 TimeSpentSeconds = 0,
-                SubmittedAt = null,  // ✅ Cho phép null
+                SubmittedAt = null,
                 IsCompleted = false,
                 TotalQuestions = 0,
                 CorrectCount = 0,
-                Status = "pending"
+                Status = "pending",
+                AiFeedback = null  // ✅ THÊM DÒNG NÀY
             });
         }
 
@@ -215,7 +217,8 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 IsCompleted = speakingSubmission is not null,
                 TotalQuestions = speakingSubmission?.TotalQuestions ?? 0,
                 CorrectCount = speakingSubmission?.CorrectCount ?? 0,
-                Status = speakingSubmission is not null ? "completed" : "pending"
+                Status = speakingSubmission is not null ? "completed" : "pending",
+                AiFeedback = speakingSubmission?.AiFeedback  // ✅ THÊM DÒNG NÀY
             });
         }
         else
@@ -227,11 +230,12 @@ public sealed class GetFullTestResultQueryHandler : IRequestHandler<GetFullTestR
                 SubmissionId = null,
                 Score = 0,
                 TimeSpentSeconds = 0,
-                SubmittedAt = null,  // ✅ Cho phép null
+                SubmittedAt = null,
                 IsCompleted = false,
                 TotalQuestions = 0,
                 CorrectCount = 0,
-                Status = "pending"
+                Status = "pending",
+                AiFeedback = null  // ✅ THÊM DÒNG NÀY
             });
         }
 

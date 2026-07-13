@@ -1,4 +1,5 @@
-﻿// Examify.Application/DTOs/FullTest/FullTestDto.cs
+﻿// 📁 Examify.Application/DTOs/FullTest/FullTestDto.cs
+
 namespace Examify.Application.DTOs.FullTest;
 
 public class StartFullTestResponse
@@ -64,6 +65,9 @@ public class SkillResultDto
     public int TotalQuestions { get; set; }
     public int CorrectCount { get; set; }
     public string? Status { get; set; }
+
+    // ✅ THÊM DÒNG NÀY
+    public string? AiFeedback { get; set; }
 }
 
 public class FullTestStatusDto
@@ -88,6 +92,7 @@ public class SkillStatusDto
     public string? RequiredSkillName { get; set; }
     public string? Message { get; set; }
 }
+
 public class StartFullTestRequest
 {
     public Guid FullTestId { get; set; }

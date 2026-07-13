@@ -16,12 +16,17 @@ public interface IUnitOfWork : IDisposable
     IRepository<SubmissionDetail> SubmissionDetails { get; }
     IRepository<Wallet> Wallets { get; }
     IRepository<Transaction> Transactions { get; }
+    IRepository<PurchasedExercise> PurchasedExercises { get; }
     IRepository<Bookmark> Bookmarks { get; }
     IRepository<Leaderboard> Leaderboards { get; }
     IRepository<Notification> Notifications { get; }
     IRepository<FullTestSession> FullTestSessions { get; }
     IRepository<Part> Parts { get; }
-    IRepository<SessionAnswer> SessionAnswers { get; }
 
+    IRepository<SessionAnswer> SessionAnswers { get; }
+    // Vocabulary repositories
+    IRepository<VocabularyWord> VocabularyWords { get; }
+    IRepository<VocabularyProgress> VocabularyProgress { get; }
     Task<int> SaveChangesAsync();
+
 }

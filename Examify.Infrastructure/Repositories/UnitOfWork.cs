@@ -9,7 +9,9 @@ public class UnitOfWork : IUnitOfWork
 {
     private readonly ApplicationDbContext _context;
     private bool _disposed = false;
-
+    private IRepository<VocabularyWord>? _vocabularyWords;
+    private IRepository<VocabularyProgress>? _vocabularyProgress;
+    private IRepository<Submission>? _submissions;
     public UnitOfWork(ApplicationDbContext context)
     {
         _context = context;
@@ -25,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
         SubmissionDetails = new GenericRepository<SubmissionDetail>(context);
         Wallets = new GenericRepository<Wallet>(context);
         Transactions = new GenericRepository<Transaction>(context);
+        PurchasedExercises = new GenericRepository<PurchasedExercise>(context); // ✅ KHỞI TẠO Ở ĐÂY
         Bookmarks = new GenericRepository<Bookmark>(context);
         Leaderboards = new GenericRepository<Leaderboard>(context);
         Notifications = new GenericRepository<Notification>(context);
@@ -44,14 +47,19 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<SubmissionDetail> SubmissionDetails { get; }
     public IRepository<Wallet> Wallets { get; }
     public IRepository<Transaction> Transactions { get; }
+    public IRepository<PurchasedExercise> PurchasedExercises { get; } // ✅ CHỈ KHAI BÁO 1 LẦN
     public IRepository<Bookmark> Bookmarks { get; }
     public IRepository<Leaderboard> Leaderboards { get; }
     public IRepository<Notification> Notifications { get; }
     public IRepository<FullTestSession> FullTestSessions { get; }
     public IRepository<Part> Parts { get; }
     public IRepository<SessionAnswer> SessionAnswers { get; }
+ 
+    public IRepository<VocabularyWord> VocabularyWords =>
+     _vocabularyWords ??= new GenericRepository<VocabularyWord>(_context);
 
-
+    public IRepository<VocabularyProgress> VocabularyProgress =>
+        _vocabularyProgress ??= new GenericRepository<VocabularyProgress>(_context);
     public async Task<int> SaveChangesAsync()
     {
         return await _context.SaveChangesAsync();

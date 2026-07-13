@@ -1,5 +1,4 @@
 ﻿// 📁 Examify.Application/Cqrs/Commands/Writing/SubmitWritingCommandHandler.cs
-
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
@@ -8,6 +7,7 @@ using Examify.Application.DTOs.Submissions;
 using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using System.Text;
 
 namespace Examify.Application.Cqrs.Commands.Writing;
 
@@ -27,9 +27,19 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         _httpContextAccessor = httpContextAccessor;
     }
 
+    // ============================================================
+    // HELPER: ĐẾM TỪ
+    // ============================================================
+
+    private static int CountWords(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 0;
+        return text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
     public async Task<SubmissionDetailDto> Handle(SubmitWritingCommand request, CancellationToken cancellationToken)
     {
-        // ✅ LẤY USER ID TỪ TOKEN
+        //  LẤY USER ID TỪ TOKEN
         var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim))
             throw new Exception("User not authenticated");
@@ -53,11 +63,13 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         // 3. Chuẩn bị bài viết cho AI
         var essayTexts = new Dictionary<Guid, string>();
         var essaysForAI = new List<(string essay, string prompt)>();
+        var wordCounts = new Dictionary<Guid, int>();
 
         foreach (var question in questionList)
         {
             string essayText = GetEssayText(request, question);
             essayTexts[question.Id] = essayText;
+            wordCounts[question.Id] = CountWords(essayText);
             essaysForAI.Add((essayText, question.PromptText));
         }
 
@@ -75,7 +87,8 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
                 TotalScore = 5.0,
                 Strengths = "AI grading temporarily unavailable",
                 Weaknesses = "Using fallback grading",
-                Suggestions = "Please try again later"
+                Suggestions = "Please try again later",
+                DetailedFeedback = new List<WritingDetailedFeedback>()
             }).ToList();
         }
 
@@ -88,6 +101,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
             var question = questionList[i];
             var aiResult = aiResults[i];
             var essayText = essayTexts[question.Id];
+            var wordCount = wordCounts[question.Id];
 
             totalScore += aiResult.TotalScore;
 
@@ -100,7 +114,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
                 CorrectAnswer = null,
                 IsCorrect = aiResult.TotalScore >= 5.0,
                 AiScore = aiResult.TotalScore,
-                AiFeedback = FormatAiFeedback(aiResult),
+                AiFeedback = FormatAiFeedback(aiResult, wordCount),
                 Explanation = null
             });
         }
@@ -113,7 +127,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
-            UserId = userId,  // ✅ DÙNG USER ID TỪ TOKEN
+            UserId = userId,
             ExerciseId = request.ExerciseId,
             SkillType = 2,
             TotalScore = (short)Math.Round(averageScore),
@@ -127,7 +141,22 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
                 task2 = request.Task2Essay,
                 answers = request.Answers
             }),
-            AiFeedback = JsonSerializer.Serialize(aiResults),
+            AiFeedback = JsonSerializer.Serialize(new
+            {
+                Summary = "Writing graded by AI",
+                Results = aiResults.Select(r => new
+                {
+                    r.TaskResponseScore,
+                    r.CoherenceCohesionScore,
+                    r.LexicalResourceScore,
+                    r.GrammarRangeScore,
+                    r.TotalScore,
+                    r.Strengths,
+                    r.Weaknesses,
+                    r.Suggestions,
+                    DetailedFeedback = r.DetailedFeedback // ✅ THÊM: Lưu detailed feedback
+                })
+            }),
             SubmittedAt = DateTime.UtcNow,
             IsGraded = true,
             CreatedAt = DateTime.UtcNow,
@@ -141,6 +170,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         {
             string essayText = essayTexts[question.Id];
             var aiResult = aiResults.FirstOrDefault();
+            var wordCount = wordCounts[question.Id];
 
             var detail = new SubmissionDetail
             {
@@ -154,7 +184,7 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
                 IsCorrect = aiResult?.TotalScore >= 5.0,
                 PointEarned = (short)Math.Round(aiResult?.TotalScore ?? 0),
                 AiScore = aiResult?.TotalScore ?? 0,
-                AiFeedback = aiResult != null ? FormatAiFeedback(aiResult) : string.Empty,
+                AiFeedback = aiResult != null ? FormatAiFeedback(aiResult, wordCount) : string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
@@ -205,7 +235,8 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
                     r.TotalScore,
                     r.Strengths,
                     r.Weaknesses,
-                    r.Suggestions
+                    r.Suggestions,
+                    DetailedFeedback = r.DetailedFeedback // ✅ THÊM: Lưu detailed feedback
                 })
             }
         };
@@ -225,12 +256,43 @@ public class SubmitWritingCommandHandler : IRequestHandler<SubmitWritingCommand,
         return string.Empty;
     }
 
-    private static string FormatAiFeedback(WritingGradeResult result)
+    // ============================================================
+    // FORMAT AI FEEDBACK - HIỂN THỊ CHI TIẾT
+    // ============================================================
+
+    private static string FormatAiFeedback(WritingGradeResult result, int wordCount)
     {
         if (result == null) return string.Empty;
-        return $"Điểm: {result.TotalScore}/10\n" +
-               $"Điểm mạnh: {result.Strengths}\n" +
-               $"Điểm yếu: {result.Weaknesses}\n" +
-               $"Gợi ý: {result.Suggestions}";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"📊 Điểm tổng: {result.TotalScore}/10");
+        sb.AppendLine($"📝 Số từ: {wordCount}");
+        sb.AppendLine();
+        sb.AppendLine("📌 Điểm từng tiêu chí:");
+        sb.AppendLine($"   • Task Response: {result.TaskResponseScore}/10");
+        sb.AppendLine($"   • Coherence & Cohesion: {result.CoherenceCohesionScore}/10");
+        sb.AppendLine($"   • Lexical Resource: {result.LexicalResourceScore}/10");
+        sb.AppendLine($"   • Grammatical Range: {result.GrammarRangeScore}/10");
+        sb.AppendLine();
+        sb.AppendLine($"✅ Điểm mạnh:\n{result.Strengths}");
+        sb.AppendLine();
+        sb.AppendLine($"⚠️ Điểm yếu:\n{result.Weaknesses}");
+        sb.AppendLine();
+        sb.AppendLine($"💡 Gợi ý cải thiện:\n{result.Suggestions}");
+
+        // ✅ THÊM: Detailed Feedback
+        if (result.DetailedFeedback != null && result.DetailedFeedback.Any())
+        {
+            sb.AppendLine();
+            sb.AppendLine("📝 Phân tích chi tiết từng lỗi:");
+            foreach (var feedback in result.DetailedFeedback)
+            {
+                sb.AppendLine($"   • Vấn đề: {feedback.Issue}");
+                sb.AppendLine($"     Câu sai: \"{feedback.Sentence}\"");
+                sb.AppendLine($"     Sửa: \"{feedback.Suggestion}\"");
+            }
+        }
+
+        return sb.ToString();
     }
 }

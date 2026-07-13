@@ -1,12 +1,12 @@
-﻿// 📁 Examify.Application/Cqrs/Commands/Admin/Question/CreateReadingQuestionsCommandHandler.cs
+﻿// Examify.Application/Cqrs/Commands/Admin/Question/CreateReadingQuestionsCommandHandler.cs
 
-using MediatR;
 using AutoMapper;
-using Examify.Core.Entities;
-using Examify.Core.Interfaces;
-using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Admin;
 using Examify.Application.DTOs.Exercises;
+using Examify.Core.Entities;
+using Examify.Core.Exceptions;
+using Examify.Core.Interfaces;
+using MediatR;
 using System.Text.Json;
 
 namespace Examify.Application.Cqrs.Commands.Admin.Question;
@@ -24,27 +24,19 @@ public class CreateReadingQuestionsCommandHandler : IRequestHandler<CreateReadin
 
     public async Task<List<ReadingQuestionDto>> Handle(CreateReadingQuestionsCommand request, CancellationToken cancellationToken)
     {
+        // Kiểm tra Exercise tồn tại
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.ExerciseId);
-        if (exercise == null)
-            throw new NotFoundException("Exercise not found");
-
-        if (exercise.Skill != 0)
-            throw new BadRequestException("This exercise is not Reading");
+        if (exercise == null || exercise.IsDeleted)
+        {
+            throw new NotFoundException($"Không tìm thấy Exercise với ID '{request.ExerciseId}'");
+        }
 
         var createdQuestions = new List<ReadingQuestion>();
 
-        // ✅ LƯU PASSAGE THEO PART
-        var passagesByPart = new Dictionary<int, string>();
-
         foreach (var dto in request.Dto.Questions)
         {
-            // ✅ LƯU PASSAGE THEO PART (KIỂM TRA NULL)
-            if (!string.IsNullOrEmpty(dto.Passage) && !passagesByPart.ContainsKey(dto.PartNumber))
-            {
-                passagesByPart[dto.PartNumber] = dto.Passage;
-            }
-
-            var question = new ReadingQuestion
+            // ✅ SỬA: Dùng full path hoặc alias
+            var question = new Examify.Core.Entities.ReadingQuestion  // ← Dùng full path
             {
                 Id = Guid.NewGuid(),
                 ExerciseId = request.ExerciseId,
@@ -59,44 +51,47 @@ public class CreateReadingQuestionsCommandHandler : IRequestHandler<CreateReadin
                 IsDeleted = false
             };
 
+            // ✅ NẾU CÓ PASSAGE, LƯU VÀO BẢNG Parts
+            if (!string.IsNullOrEmpty(dto.Passage))
+            {
+                // ✅ SỬA: Dùng full path cho Part
+                var existingParts = await _unitOfWork.Parts
+                    .FindAsync(p => p.ExerciseId == request.ExerciseId && p.PartNumber == dto.PartNumber && !p.IsDeleted);
+
+                if (existingParts.Any())
+                {
+                    // Cập nhật Passage nếu Part đã tồn tại
+                    var existingPart = existingParts.First();
+                    existingPart.Passage = dto.Passage;
+                    existingPart.Title = $"Part {dto.PartNumber}";
+                    existingPart.UpdatedAt = DateTime.UtcNow;
+                    await _unitOfWork.Parts.UpdateAsync(existingPart);
+                }
+                else
+                {
+                    // Tạo mới Part nếu chưa có
+                    var newPart = new Examify.Core.Entities.Part  // ← Dùng full path
+                    {
+                        Id = Guid.NewGuid(),
+                        ExerciseId = request.ExerciseId,
+                        PartNumber = dto.PartNumber,
+                        Title = $"Part {dto.PartNumber}",
+                        Passage = dto.Passage,
+                        CreatedAt = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+                    await _unitOfWork.Parts.AddAsync(newPart);
+                }
+            }
+
             await _unitOfWork.ReadingQuestions.AddAsync(question);
             createdQuestions.Add(question);
         }
 
-        // ✅ TẠO HOẶC CẬP NHẬT PARTS
-        foreach (var part in passagesByPart)
-        {
-            var existingPart = (await _unitOfWork.Parts
-                .FindAsync(p => p.ExerciseId == request.ExerciseId && p.PartNumber == part.Key && !p.IsDeleted))
-                .FirstOrDefault();
-
-            if (existingPart == null)
-            {
-                var newPart = new Part
-                {
-                    Id = Guid.NewGuid(),
-                    ExerciseId = request.ExerciseId,
-                    PartNumber = part.Key,
-                    Title = $"Part {part.Key}",
-                    Passage = part.Value,
-                    CreatedAt = DateTime.UtcNow,
-                    IsDeleted = false
-                };
-                await _unitOfWork.Parts.AddAsync(newPart);
-            }
-            else
-            {
-                existingPart.Passage = part.Value;
-                existingPart.UpdatedAt = DateTime.UtcNow;
-                await _unitOfWork.Parts.UpdateAsync(existingPart);
-            }
-        }
-
-        // Cập nhật TotalQuestions
-        var totalQuestions = (await _unitOfWork.ReadingQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted))
-            .Count();
-        exercise.TotalQuestions = totalQuestions;
+        // Cập nhật số lượng câu hỏi cho Exercise
+        var allQuestions = await _unitOfWork.ReadingQuestions
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
+        exercise.TotalQuestions = allQuestions.Count();
         await _unitOfWork.Exercises.UpdateAsync(exercise);
 
         await _unitOfWork.SaveChangesAsync();

@@ -29,11 +29,16 @@ public class UpdateFullTestCommandHandler : IRequestHandler<UpdateFullTestComman
         if (!fullTest.IsFullTest)
             throw new BadRequestException("This exercise is not a Full Test");
 
+        // Cập nhật thông tin cơ bản
         fullTest.Title = request.Dto.Title;
         fullTest.Description = request.Dto.Description;
         fullTest.TimeLimitSeconds = request.Dto.TimeLimitSeconds;
         fullTest.Difficulty = request.Dto.Difficulty;
         fullTest.UpdatedAt = DateTime.UtcNow;
+
+        // ✅ THÊM: CẬP NHẬT ISFREE VÀ PRICE
+        fullTest.IsFree = request.Dto.IsFree;
+        fullTest.Price = request.Dto.Price;
 
         // Cập nhật các ID liên kết (nếu có)
         if (request.Dto.ReadingExerciseId.HasValue)
@@ -48,7 +53,9 @@ public class UpdateFullTestCommandHandler : IRequestHandler<UpdateFullTestComman
         if (request.Dto.SpeakingExerciseId.HasValue)
             fullTest.SpeakingExerciseId = request.Dto.SpeakingExerciseId.Value;
 
-        // Cập nhật tổng số câu hỏi
+        // Cập nhật tổng số câu hỏi (RESET trước khi tính lại)
+        fullTest.TotalQuestions = 0;
+
         if (fullTest.ReadingExerciseId.HasValue)
         {
             var reading = await _unitOfWork.Exercises.GetByIdAsync(fullTest.ReadingExerciseId.Value);

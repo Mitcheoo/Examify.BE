@@ -1,4 +1,4 @@
-﻿// Examify.API/Controllers/SubmissionsController.cs
+﻿/*Examify.API / Controllers / SubmissionsController.cs*/
 using Examify.Application.Cqrs.Queries.Submissions;
 using Examify.Application.DTOs.Submissions;
 using MediatR;
@@ -21,7 +21,33 @@ public class SubmissionsController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy chi tiết kết quả bài làm theo SubmissionId
+    /// ✅ LẤY DANH SÁCH BÀI LÀM CỦA USER
+    /// </summary>
+    [HttpGet("my")]
+    public async Task<ActionResult<List<MySubmissionItemDto>>> GetMySubmissions(
+        [FromQuery] int? skill = null,
+        [FromQuery] int? limit = null,
+        [FromQuery] int? offset = null)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { message = "User not authenticated" });
+
+        var userId = Guid.Parse(userIdClaim);
+
+        var query = new GetMySubmissionsQuery(
+            UserId: userId,
+            SkillType: skill,
+            Limit: limit ?? 50,
+            Offset: offset ?? 0
+        );
+
+        var result = await _mediator.Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// ✅ LẤY CHI TIẾT 1 BÀI LÀM
     /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<SubmissionDetailDto>> GetSubmission(Guid id)
@@ -39,7 +65,6 @@ public class SubmissionsController : ControllerBase
         if (result == null)
             return NotFound(new { message = "Submission not found" });
 
-        // ✅ ĐÚNG - So sánh UserId của submission với userId hiện tại
         if (result.UserId != userId && !isAdmin)
             return Forbid();
 

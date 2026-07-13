@@ -1,4 +1,5 @@
 ﻿// Examify.Application/Cqrs/Commands/FullTest/StartFullTestCommandHandler.cs
+
 using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Interfaces;
@@ -18,49 +19,118 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
 
     public async Task<StartFullTestResponse> Handle(StartFullTestCommand request, CancellationToken cancellationToken)
     {
+        var userId = request.UserId; // ✅ Lấy từ Command
+
         // 1. Lấy Full Test
         var fullTest = await _unitOfWork.Exercises.GetByIdAsync(request.FullTestId);
         if (fullTest is null || !fullTest.IsFullTest)
             throw new NotFoundException($"Full Test with ID {request.FullTestId} not found");
 
         // ============================================================
-        // ✅ THÊM: XÓA SESSION CŨ VÀ DRAFT ANSWERS
+        // ✅ KIỂM TRA BÀI THI CÓ PHÍ VÀ TRỪ TIỀN
         // ============================================================
 
-        // 1.1 Tìm session cũ (InProgress) của user cho Full Test này
+        if (!fullTest.IsFree && fullTest.Price > 0)
+        {
+            Console.WriteLine($"💰 Full Test có phí: {fullTest.Price} VND");
+
+            // Kiểm tra user đã mua bài thi này chưa
+            var purchased = (await _unitOfWork.PurchasedExercises
+                .FindAsync(p => p.UserId == userId && p.ExerciseId == request.FullTestId && !p.IsDeleted))
+                .FirstOrDefault();
+
+            if (purchased == null)
+            {
+                Console.WriteLine($"🔍 User chưa mua bài thi này. Kiểm tra số dư...");
+
+                var wallet = (await _unitOfWork.Wallets
+                    .FindAsync(w => w.UserId == userId && !w.IsDeleted))
+                    .FirstOrDefault();
+
+                if (wallet is null)
+                {
+                    throw new InvalidOperationException("Bạn chưa có ví. Vui lòng nạp tiền trước!");
+                }
+
+                if (wallet.Balance < fullTest.Price)
+                {
+                    throw new InvalidOperationException(
+                        $"Số dư không đủ. Cần {fullTest.Price:N0} VND, hiện có {wallet.Balance:N0} VND."
+                    );
+                }
+
+                // Trừ tiền
+                var balanceBefore = wallet.Balance;
+                wallet.Balance -= fullTest.Price;
+                wallet.TotalSpent += fullTest.Price;
+
+                // Tạo PurchasedExercise
+                var purchasedExercise = new PurchasedExercise
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    ExerciseId = request.FullTestId,
+                    PaidAmount = fullTest.Price,
+                    PurchasedAt = DateTime.UtcNow
+                };
+
+                // Tạo Transaction
+                var transaction = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    WalletId = wallet.Id,
+                    ExerciseId = request.FullTestId,
+                    Amount = -fullTest.Price,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = "Purchase",
+                    Status = "Success",
+                    Description = $"Mua Full Test: {fullTest.Title}",
+                    PaymentMethod = "Wallet"
+                };
+
+                await _unitOfWork.Wallets.UpdateAsync(wallet);
+                await _unitOfWork.PurchasedExercises.AddAsync(purchasedExercise);
+                await _unitOfWork.Transactions.AddAsync(transaction);
+                await _unitOfWork.SaveChangesAsync();
+
+                Console.WriteLine($"✅ Đã trừ {fullTest.Price:N0} VND. Số dư mới: {wallet.Balance:N0} VND");
+            }
+            else
+            {
+                Console.WriteLine($"✅ User đã mua bài thi này rồi.");
+            }
+        }
+
+        // ... Phần còn lại giữ nguyên (tạo session, exercise con) ...
+
+        // 2. Xóa session cũ
         var oldSessions = await _unitOfWork.FullTestSessions
-            .FindAsync(s => s.UserId == request.UserId && s.FullTestId == request.FullTestId && s.Status == 0);
+            .FindAsync(s => s.UserId == userId && s.FullTestId == request.FullTestId && s.Status == 0);
 
         var oldSession = oldSessions.FirstOrDefault();
-
         if (oldSession != null)
         {
-            Console.WriteLine($"🗑️ Found old session: {oldSession.Id}, deleting draft answers...");
-
-            // 1.2 Xóa tất cả SessionAnswers của session cũ
             var oldAnswers = await _unitOfWork.SessionAnswers
                 .FindAsync(a => a.SessionId == oldSession.Id);
 
             foreach (var answer in oldAnswers)
             {
                 await _unitOfWork.SessionAnswers.DeleteAsync(answer);
-                Console.WriteLine($"   ✅ Deleted answer for question: {answer.QuestionId}");
             }
 
-            // 1.3 Đánh dấu session cũ là Expired
-            oldSession.Status = 2; // Expired
+            oldSession.Status = 2;
             await _unitOfWork.FullTestSessions.UpdateAsync(oldSession);
-
-            Console.WriteLine($"✅ Old session {oldSession.Id} marked as Expired");
         }
 
-        // 2. Tạo hoặc lấy 4 Exercise con
+        // 3. Tạo hoặc lấy exercise con
         var readingId = await GetOrCreateChildExercise(fullTest.Id, 0, "Reading");
         var listeningId = await GetOrCreateChildExercise(fullTest.Id, 1, "Listening");
         var writingId = await GetOrCreateChildExercise(fullTest.Id, 2, "Writing");
         var speakingId = await GetOrCreateChildExercise(fullTest.Id, 3, "Speaking");
 
-        // 3. Cập nhật Full Test với ExerciseId (nếu chưa có)
+        // 4. Cập nhật Full Test
         bool isUpdated = false;
         if (!fullTest.ReadingExerciseId.HasValue && readingId.HasValue)
         {
@@ -89,12 +159,12 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
             await _unitOfWork.SaveChangesAsync();
         }
 
-        // 4. Tạo Session mới
+        // 5. Tạo Session mới
         var session = new FullTestSession
         {
             Id = Guid.NewGuid(),
-            UserId = request.UserId,
-            FullTestId = request.FullTestId,  // ✅ THÊM FullTestId
+            UserId = userId,
+            FullTestId = request.FullTestId,
             StartTime = DateTime.UtcNow,
             Status = 0,
             CurrentPart = 1,
@@ -115,9 +185,7 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
         await _unitOfWork.FullTestSessions.AddAsync(session);
         await _unitOfWork.SaveChangesAsync();
 
-        Console.WriteLine($"✅ New session created: {session.Id}");
-
-        // 5. Tạo response
+        // 6. Tạo response
         var parts = new List<FullTestPartDto>();
         var exerciseIds = new[] { readingId, listeningId, writingId, speakingId };
         var partNames = new[] { "Reading", "Listening", "Writing", "Speaking" };
@@ -148,9 +216,6 @@ public class StartFullTestCommandHandler : IRequestHandler<StartFullTestCommand,
         };
     }
 
-    /// <summary>
-    /// Tạo Exercise con nếu chưa tồn tại, ngược lại trả về ID đã có
-    /// </summary>
     private async Task<Guid?> GetOrCreateChildExercise(Guid fullTestId, int skill, string skillName)
     {
         var existing = await _unitOfWork.Exercises
