@@ -124,6 +124,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [Authorize]
     [HttpPost("upload-avatar")]
+    [Consumes("multipart/form-data")]
     public async Task<IActionResult> UploadAvatar(IFormFile avatarFile)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

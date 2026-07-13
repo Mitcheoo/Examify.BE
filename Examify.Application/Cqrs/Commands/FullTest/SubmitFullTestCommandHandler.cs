@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿// Examify.Application/Cqrs/Commands/FullTest/SubmitFullTestCommandHandler.cs
+using MediatR;
 using Examify.Core.Entities;
 using Examify.Core.Exceptions;
 using Examify.Core.Interfaces;
@@ -6,7 +7,7 @@ using Examify.Application.DTOs.FullTest;
 
 namespace Examify.Application.Cqrs.Commands.FullTest;
 
-public class SubmitFullTestCommandHandler : IRequestHandler<SubmitFullTestCommand, FullTestResultResponse>
+public sealed class SubmitFullTestCommandHandler : IRequestHandler<SubmitFullTestCommand, FullTestResultResponse>
 {
     private readonly IUnitOfWork _unitOfWork;
 
@@ -21,53 +22,91 @@ public class SubmitFullTestCommandHandler : IRequestHandler<SubmitFullTestComman
         if (session is null)
             throw new FullTestException("Session not found");
 
-        short readingScore = 0, listeningScore = 0, writingScore = 0, speakingScore = 0;
+        // Lấy tất cả bài làm đã chấm điểm của user
+        var recentSubmissions = await _unitOfWork.Submissions
+            .FindAsync(s => s.UserId == session.UserId && s.IsGraded);
 
-        if (session.ReadingSubmissionId.HasValue)
+        var submissionsList = recentSubmissions.ToList();
+
+        // Lấy bài làm mới nhất cho từng kỹ năng
+        var readingSub = submissionsList
+            .Where(s => s.SkillType == 0)
+            .OrderByDescending(s => s.SubmittedAt)
+            .FirstOrDefault();
+
+        var listeningSub = submissionsList
+            .Where(s => s.SkillType == 1)
+            .OrderByDescending(s => s.SubmittedAt)
+            .FirstOrDefault();
+
+        var writingSub = submissionsList
+            .Where(s => s.SkillType == 2)
+            .OrderByDescending(s => s.SubmittedAt)
+            .FirstOrDefault();
+
+        var speakingSub = submissionsList
+            .Where(s => s.SkillType == 3)
+            .OrderByDescending(s => s.SubmittedAt)
+            .FirstOrDefault();
+
+        // Cập nhật SubmissionId
+        session.ReadingSubmissionId = readingSub?.Id;
+        session.ListeningSubmissionId = listeningSub?.Id;
+        session.WritingSubmissionId = writingSub?.Id;
+        session.SpeakingSubmissionId = speakingSub?.Id;
+
+        // Cập nhật TimeSpent
+        session.ReadingTimeSpent = readingSub?.TimeSpentSeconds ?? 0;
+        session.ListeningTimeSpent = listeningSub?.TimeSpentSeconds ?? 0;
+        session.WritingTimeSpent = writingSub?.TimeSpentSeconds ?? 0;
+        session.SpeakingTimeSpent = speakingSub?.TimeSpentSeconds ?? 0;
+
+        // Tính tổng điểm
+        var scores = new double[]
         {
-            var reading = await _unitOfWork.Submissions.GetByIdAsync(session.ReadingSubmissionId.Value);
-            readingScore = reading?.TotalScore ?? 0;
-        }
-
-        if (session.ListeningSubmissionId.HasValue)
-        {
-            var listening = await _unitOfWork.Submissions.GetByIdAsync(session.ListeningSubmissionId.Value);
-            listeningScore = listening?.TotalScore ?? 0;
-        }
-
-        if (session.WritingSubmissionId.HasValue)
-        {
-            var writing = await _unitOfWork.Submissions.GetByIdAsync(session.WritingSubmissionId.Value);
-            writingScore = writing?.TotalScore ?? 0;
-        }
-
-        if (session.SpeakingSubmissionId.HasValue)
-        {
-            var speaking = await _unitOfWork.Submissions.GetByIdAsync(session.SpeakingSubmissionId.Value);
-            speakingScore = speaking?.TotalScore ?? 0;
-        }
-
-        var totalScore = (short)Math.Round((readingScore + listeningScore + writingScore + speakingScore) / 4.0, MidpointRounding.AwayFromZero);
-
-        session.TotalScore = totalScore;
-        session.EndTime = DateTime.UtcNow;
+            readingSub?.TotalScore ?? 0,
+            listeningSub?.TotalScore ?? 0,
+            writingSub?.TotalScore ?? 0,
+            speakingSub?.TotalScore ?? 0
+        };
+        session.TotalScore = (short)Math.Round(scores.Average());
         session.Status = 1;
+        session.EndTime = DateTime.UtcNow;
 
         await _unitOfWork.SaveChangesAsync();
 
-        await UpdateLeaderboard(session.UserId, totalScore);
+        // ============================================================
+        // ✅ THÊM: XÓA SESSION ANSWERS SAU KHI NỘP BÀI
+        // ============================================================
 
+        Console.WriteLine($"🗑️ Deleting draft answers for session: {session.Id}");
+
+        var draftAnswers = await _unitOfWork.SessionAnswers
+            .FindAsync(a => a.SessionId == session.Id);
+
+        foreach (var answer in draftAnswers)
+        {
+            await _unitOfWork.SessionAnswers.DeleteAsync(answer);
+            Console.WriteLine($"   ✅ Deleted answer for question: {answer.QuestionId}");
+        }
+
+        Console.WriteLine($"✅ All draft answers deleted for session: {session.Id}");
+
+        // Cập nhật Leaderboard
+        await UpdateLeaderboard(session.UserId, session.TotalScore.Value);
+
+        // Tính tổng thời gian
         var totalTime = session.ReadingTimeSpent + session.ListeningTimeSpent +
                         session.WritingTimeSpent + session.SpeakingTimeSpent;
 
         return new FullTestResultResponse
         {
             SessionId = session.Id,
-            TotalScore = totalScore,
-            ReadingScore = readingScore,
-            ListeningScore = listeningScore,
-            WritingScore = writingScore,
-            SpeakingScore = speakingScore,
+            TotalScore = session.TotalScore ?? 0,
+            ReadingScore = readingSub?.TotalScore ?? 0,
+            ListeningScore = listeningSub?.TotalScore ?? 0,
+            WritingScore = writingSub?.TotalScore ?? 0,
+            SpeakingScore = speakingSub?.TotalScore ?? 0,
             StartTime = session.StartTime,
             EndTime = session.EndTime,
             TotalTimeSpentSeconds = totalTime

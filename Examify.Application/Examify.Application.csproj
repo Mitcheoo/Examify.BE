@@ -17,4 +17,8 @@
     <ProjectReference Include="..\Examify.Infrastructure\Examify.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Cqrs\Commands\Exercises\" />
+  </ItemGroup>
+
 </Project>

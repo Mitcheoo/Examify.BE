@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using Examify.Application.Cqrs.Commands.Writing;
+﻿using Examify.Application.Cqrs.Commands.Writing;
 using Examify.Application.Cqrs.Queries.Exercises;
 using Examify.Application.Cqrs.Queries.Submissions;
 using Examify.Application.DTOs.Exercises;
 using Examify.Application.DTOs.Submissions;
+using Examify.Core.Enums;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
 namespace Examify.API.Controllers;
@@ -25,18 +26,20 @@ public class WritingController : ControllerBase
     /// <summary>
     /// Lấy danh sách tất cả bài thi Writing
     /// </summary>
-    [HttpGet("list")]
-    public async Task<ActionResult<List<ExerciseDto>>> GetExercisesList()
-    {
-        var query = new GetExercisesListQuery();
-        var result = await _mediator.Send(query);
-        return Ok(result);
-    }
+ 
 
-    /// <summary>
-    /// Lấy chi tiết đề thi Writing theo ID
-    /// </summary>
-    [HttpGet("{id}")]
+[HttpGet("list")]
+public async Task<ActionResult<List<ExerciseDto>>> GetExercisesList()
+{
+    var query = new GetExercisesListQuery(SkillType.Writing);  // ✅ SỬA
+    var result = await _mediator.Send(query);
+    return Ok(result);
+}
+
+/// <summary>
+/// Lấy chi tiết đề thi Writing theo ID
+/// </summary>
+[HttpGet("{id}")]
     public async Task<ActionResult<ExerciseDto>> GetExercise(Guid id)
     {
         var query = new GetExerciseQuery(id);
@@ -67,7 +70,7 @@ public class WritingController : ControllerBase
     /// Nộp bài thi Writing (gọi AI chấm điểm)
     /// </summary>
     [HttpPost("submit")]
-    public async Task<ActionResult<SubmissionResultDto>> Submit(SubmitWritingCommand command)
+    public async Task<ActionResult<SubmissionDetailDto>> Submit(SubmitWritingCommand command)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim))
@@ -82,7 +85,7 @@ public class WritingController : ControllerBase
     /// Xem kết quả bài thi Writing theo SubmissionId
     /// </summary>
     [HttpGet("result/{submissionId}")]
-    public async Task<ActionResult<SubmissionResultDto>> GetResult(Guid submissionId)
+    public async Task<ActionResult<SubmissionDetailDto>> GetResult(Guid submissionId)
     {
         var query = new GetSubmissionResultQuery(submissionId);
         var result = await _mediator.Send(query);
@@ -90,10 +93,15 @@ public class WritingController : ControllerBase
         if (result == null)
             return NotFound(new { message = "Result not found" });
 
+        // ✅ KIỂM TRA userIdClaim TRƯỚC KHI PARSE
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { message = "User not authenticated" });
+
+        var userId = Guid.Parse(userIdClaim);
         var isAdmin = User.IsInRole("Admin");
 
-        if (result.UserId != Guid.Parse(userIdClaim) && !isAdmin)
+        if (result.Id != userId && !isAdmin)
             return Forbid();
 
         return Ok(result);

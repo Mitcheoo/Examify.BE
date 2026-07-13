@@ -1,4 +1,4 @@
-// Examify.Application/Cqrs/Queries/Exercises/GetExerciseQueryHandler.cs
+﻿// Examify.Application/Cqrs/Queries/Exercises/GetExerciseQueryHandler.cs
 using MediatR;
 using AutoMapper;
 using Examify.Core.Interfaces;
@@ -21,7 +21,11 @@ public class GetExerciseQueryHandler : IRequestHandler<GetExerciseQuery, Exercis
     public async Task<ExerciseDto> Handle(GetExerciseQuery request, CancellationToken cancellationToken)
     {
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.Id);
-     
+
+        // ✅ THÊM KIỂM TRA NULL
+        if (exercise == null)
+            throw new NotFoundException($"Exercise with ID {request.Id} not found");
+
         return _mapper.Map<ExerciseDto>(exercise);
     }
 }
