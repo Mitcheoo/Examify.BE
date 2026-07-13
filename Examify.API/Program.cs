@@ -4,6 +4,7 @@ using Examify.Core.Interfaces;
 using Examify.Infrastructure;
 using Examify.Infrastructure.Data;
 using Examify.Infrastructure.External;
+using Examify.Infrastructure.Repositories;
 using Examify.Infrastructure.Seed;
 using Examify.Infrastructure.Services;
 using MediatR;
@@ -13,11 +14,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using YourApp.Controllers;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// ========== ADD SERVICES ==========
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -77,13 +79,13 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Infrastructure (UnitOfWork, Repositories)
+// Infrastructure (UnitOfWork, Repositories, Services)
 builder.Services.AddInfrastructure();
 
 // Application (MediatR, AutoMapper)
 builder.Services.AddApplication();
 
-// HttpContextAccessor (cho ICurrentUserService)
+// HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
 // Memory Cache
@@ -126,13 +128,41 @@ builder.Services.AddAuthentication(options =>
 // Token Service
 builder.Services.AddScoped<ITokenService, TokenService>();
 
-// Call external API
-builder.Services.AddHttpClient<IDeepSeekApiClient, DeepSeekApiClient>();
-builder.Services.AddScoped<IAIGradingService, AIGradingService>();
+// ========== EXTERNAL SERVICES ==========
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+// Gemini API
+builder.Services.AddHttpClient<IGeminiApiClient, GeminiApiClient>();
 
+// Whisper API (Speech-to-Text)
+builder.Services.AddHttpClient<IWhisperApiClient, WhisperApiClient>((serviceProvider, client) =>
+{
+    var config = serviceProvider.GetRequiredService<IConfiguration>();
+    var baseUrl = config["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
+    if (!baseUrl.EndsWith("/"))
+        baseUrl += "/";
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
+
+builder.Services.AddHttpClient<IOpenAIClient, OpenAIClient>((serviceProvider, client) =>
+{
+    var config = serviceProvider.GetRequiredService<IConfiguration>();
+    var baseUrl = config["OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
+    if (!baseUrl.EndsWith("/"))
+        baseUrl += "/";
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
+// ========== BUILD APP ==========
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 var app = builder.Build();
 
-// Configure pipeline
+// ========== CONFIGURE PIPELINE ==========
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -148,12 +178,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
-// ✅ QUAN TRỌNG: THỨ TỰ MIDDLEWARE ĐÚNG - CORS PHẢI ĐẦU TIÊN
-app.UseCors("AllowAngularApp");     // 1. CORS - ĐẦU TIÊN
+// ✅ THỨ TỰ MIDDLEWARE ĐÚNG
+app.UseCors("AllowAngularApp");     // 1. CORS
 app.UseAuthentication();            // 2. Authentication
 app.UseAuthorization();             // 3. Authorization
-
+    
 app.MapControllers();
 
 app.Run();

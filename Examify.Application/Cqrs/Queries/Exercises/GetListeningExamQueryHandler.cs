@@ -2,6 +2,7 @@
 using MediatR;
 using AutoMapper;
 using Examify.Core.Interfaces;
+using Examify.Core.Exceptions;
 using Examify.Application.DTOs.Exercises;
 
 namespace Examify.Application.Cqrs.Queries.Exercises;
@@ -22,14 +23,16 @@ public class GetListeningExamQueryHandler : IRequestHandler<GetListeningExamQuer
         // Lấy thông tin bài thi
         var exercise = await _unitOfWork.Exercises.GetByIdAsync(request.ExerciseId);
         if (exercise == null)
-            throw new Exception("Exercise not found");
+            throw new NotFoundException($"Exercise with ID {request.ExerciseId} not found");
 
-        // Lấy câu hỏi Listening
+        // ✅ THÊM !q.IsDeleted
         var questions = await _unitOfWork.ListeningQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId);
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
+
+        var questionList = questions.ToList();
 
         // Nhóm câu hỏi theo Part
-        var parts = questions
+        var parts = questionList
             .GroupBy(q => q.PartNumber)
             .OrderBy(g => g.Key)
             .Select(g => new ListeningPartDto
@@ -45,10 +48,10 @@ public class GetListeningExamQueryHandler : IRequestHandler<GetListeningExamQuer
             Title = exercise.Title,
             AudioUrl = exercise.AudioUrl,
             TimeLimitSeconds = exercise.TimeLimitSeconds,
-            TotalQuestions = questions.Count(),
+            TotalQuestions = questionList.Count,
             TotalParts = parts.Count,
             Parts = parts,
-            Questions = _mapper.Map<List<ListeningQuestionDto>>(questions.OrderBy(q => q.OrderNumber))
+            Questions = _mapper.Map<List<ListeningQuestionDto>>(questionList.OrderBy(q => q.OrderNumber))
         };
     }
 }

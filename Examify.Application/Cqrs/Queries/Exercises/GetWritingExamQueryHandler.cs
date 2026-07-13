@@ -24,8 +24,9 @@ public class GetWritingExamQueryHandler : IRequestHandler<GetWritingExamQuery, W
         if (exercise == null)
             throw new NotFoundException("Exercise not found");
 
+        // ✅ THÊM !q.IsDeleted
         var questions = await _unitOfWork.WritingQuestions
-            .FindAsync(q => q.ExerciseId == request.ExerciseId);
+            .FindAsync(q => q.ExerciseId == request.ExerciseId && !q.IsDeleted);
 
         return new WritingExamDto
         {

@@ -4,4 +4,5 @@ using Examify.Application.DTOs.FullTest;
 
 namespace Examify.Application.Cqrs.Commands.FullTest;
 
-public record StartFullTestCommand(Guid UserId) : IRequest<StartFullTestResponse>;
+// ✅ THÊM FullTestId
+public record StartFullTestCommand(Guid UserId, Guid FullTestId) : IRequest<StartFullTestResponse>;

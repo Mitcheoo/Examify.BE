@@ -90,11 +90,22 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<int>("Difficulty")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("FullTestId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsFree")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsFullTest")
                         .HasColumnType("bit");
+
+                    b.Property<Guid?>("ListeningExerciseId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Passage")
                         .HasColumnType("nvarchar(max)");
@@ -102,8 +113,23 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<string>("PassagesJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<decimal>("Price")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<Guid?>("ReadingExerciseId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Skill")
                         .HasColumnType("int");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SpeakingExerciseId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("TimeLimitSeconds")
                         .HasColumnType("int");
@@ -125,7 +151,18 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("WritingExerciseId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ListeningExerciseId");
+
+                    b.HasIndex("ReadingExerciseId");
+
+                    b.HasIndex("SpeakingExerciseId");
+
+                    b.HasIndex("WritingExerciseId");
 
                     b.ToTable("Exercises", (string)null);
                 });
@@ -135,6 +172,9 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AttemptCounted")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -147,6 +187,9 @@ namespace Examify.Infrastructure.Migrations
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid>("FullTestId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -225,7 +268,7 @@ namespace Examify.Infrastructure.Migrations
 
                     b.HasIndex("WritingSubmissionId");
 
-                    b.ToTable("FullTestSessions");
+                    b.ToTable("FullTestSessions", (string)null);
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.Leaderboard", b =>
@@ -427,7 +470,54 @@ namespace Examify.Infrastructure.Migrations
 
                     b.HasIndex("ExerciseId");
 
-                    b.ToTable("Part");
+                    b.ToTable("Parts", (string)null);
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.PurchasedExercise", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ExerciseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("PurchasedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("UserId", "ExerciseId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("PurchasedExercises", (string)null);
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.ReadingQuestion", b =>
@@ -484,6 +574,66 @@ namespace Examify.Infrastructure.Migrations
                     b.HasIndex("ExerciseId");
 
                     b.ToTable("ReadingQuestions");
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.SessionAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AudioUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSubmitted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SkillType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Transcript")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserAnswer")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("IX_SessionAnswers_SessionId");
+
+                    b.HasIndex("SessionId", "QuestionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SessionAnswers_SessionId_QuestionId")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("SessionAnswers", (string)null);
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.SpeakingQuestion", b =>
@@ -546,6 +696,9 @@ namespace Examify.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AiFeedback")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AnswerJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("AudioUrl")
@@ -632,6 +785,9 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Explanation")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsCorrect")
                         .HasColumnType("bit");
 
@@ -677,6 +833,15 @@ namespace Examify.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceBefore")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -688,25 +853,38 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Hash")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("IdempotencyKey")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid?>("ExerciseId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("PayPalCaptureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PayPalOrderId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pending");
 
                     b.Property<Guid?>("SubmissionId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -722,13 +900,23 @@ namespace Examify.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("PayPalOrderId");
+
+                    b.HasIndex("Status");
+
                     b.HasIndex("SubmissionId");
+
+                    b.HasIndex("Type");
 
                     b.HasIndex("UserId");
 
                     b.HasIndex("WalletId");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.User", b =>
@@ -810,14 +998,16 @@ namespace Examify.Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Examify.Core.Entities.Wallet", b =>
+            modelBuilder.Entity("Examify.Core.Entities.VocabularyProgress", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("Balance")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<int>("CorrectCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -825,8 +1015,183 @@ namespace Examify.Infrastructure.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("IncorrectCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsMastered")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("LastReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NextReviewAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ReviewCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("StreakCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VocabularyWordId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsMastered");
+
+                    b.HasIndex("LastReviewedAt");
+
+                    b.HasIndex("NextReviewAt");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VocabularyWordId");
+
+                    b.HasIndex("UserId", "VocabularyWordId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("VocabularyProgress", (string)null);
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.VocabularyWord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AudioUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Example")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("B1");
+
+                    b.Property<string>("Meaning")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PartOfSpeech")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Pronunciation")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VietnameseExample")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Word")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Level");
+
+                    b.HasIndex("Topic");
+
+                    b.HasIndex("Word")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("VocabularyWords", (string)null);
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.Wallet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Balance")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("TotalDeposited")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<decimal>("TotalSpent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -842,7 +1207,7 @@ namespace Examify.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Wallets");
+                    b.ToTable("Wallets", (string)null);
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.WritingQuestion", b =>
@@ -1046,31 +1411,68 @@ namespace Examify.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Examify.Core.Entities.Exercise", b =>
+                {
+                    b.HasOne("Examify.Core.Entities.Exercise", "ListeningExercise")
+                        .WithMany()
+                        .HasForeignKey("ListeningExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Examify.Core.Entities.Exercise", "ReadingExercise")
+                        .WithMany()
+                        .HasForeignKey("ReadingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Examify.Core.Entities.Exercise", "SpeakingExercise")
+                        .WithMany()
+                        .HasForeignKey("SpeakingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Examify.Core.Entities.Exercise", "WritingExercise")
+                        .WithMany()
+                        .HasForeignKey("WritingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ListeningExercise");
+
+                    b.Navigation("ReadingExercise");
+
+                    b.Navigation("SpeakingExercise");
+
+                    b.Navigation("WritingExercise");
+                });
+
             modelBuilder.Entity("Examify.Core.Entities.FullTestSession", b =>
                 {
                     b.HasOne("Examify.Core.Entities.Exercise", "ListeningExercise")
                         .WithMany()
-                        .HasForeignKey("ListeningExerciseId");
+                        .HasForeignKey("ListeningExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Submission", "ListeningSubmission")
                         .WithMany()
-                        .HasForeignKey("ListeningSubmissionId");
+                        .HasForeignKey("ListeningSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Exercise", "ReadingExercise")
                         .WithMany()
-                        .HasForeignKey("ReadingExerciseId");
+                        .HasForeignKey("ReadingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Submission", "ReadingSubmission")
                         .WithMany()
-                        .HasForeignKey("ReadingSubmissionId");
+                        .HasForeignKey("ReadingSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Exercise", "SpeakingExercise")
                         .WithMany()
-                        .HasForeignKey("SpeakingExerciseId");
+                        .HasForeignKey("SpeakingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Submission", "SpeakingSubmission")
                         .WithMany()
-                        .HasForeignKey("SpeakingSubmissionId");
+                        .HasForeignKey("SpeakingSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.User", "User")
                         .WithMany("FullTestSessions")
@@ -1080,11 +1482,13 @@ namespace Examify.Infrastructure.Migrations
 
                     b.HasOne("Examify.Core.Entities.Exercise", "WritingExercise")
                         .WithMany()
-                        .HasForeignKey("WritingExerciseId");
+                        .HasForeignKey("WritingExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Examify.Core.Entities.Submission", "WritingSubmission")
                         .WithMany()
-                        .HasForeignKey("WritingSubmissionId");
+                        .HasForeignKey("WritingSubmissionId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ListeningExercise");
 
@@ -1149,6 +1553,25 @@ namespace Examify.Infrastructure.Migrations
                     b.Navigation("Exercise");
                 });
 
+            modelBuilder.Entity("Examify.Core.Entities.PurchasedExercise", b =>
+                {
+                    b.HasOne("Examify.Core.Entities.Exercise", "Exercise")
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Examify.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exercise");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Examify.Core.Entities.ReadingQuestion", b =>
                 {
                     b.HasOne("Examify.Core.Entities.Exercise", "Exercise")
@@ -1158,6 +1581,17 @@ namespace Examify.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Exercise");
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.SessionAnswer", b =>
+                {
+                    b.HasOne("Examify.Core.Entities.FullTestSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.SpeakingQuestion", b =>
@@ -1203,7 +1637,12 @@ namespace Examify.Infrastructure.Migrations
 
             modelBuilder.Entity("Examify.Core.Entities.Transaction", b =>
                 {
-                    b.HasOne("Examify.Core.Entities.Submission", "Submission")
+                    b.HasOne("Examify.Core.Entities.Exercise", "Exercise")
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Examify.Core.Entities.Submission", null)
                         .WithMany("Transactions")
                         .HasForeignKey("SubmissionId");
 
@@ -1213,13 +1652,35 @@ namespace Examify.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Examify.Core.Entities.Wallet", null)
+                    b.HasOne("Examify.Core.Entities.Wallet", "Wallet")
                         .WithMany("Transactions")
-                        .HasForeignKey("WalletId");
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Submission");
+                    b.Navigation("Exercise");
 
                     b.Navigation("User");
+
+                    b.Navigation("Wallet");
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.VocabularyProgress", b =>
+                {
+                    b.HasOne("Examify.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Examify.Core.Entities.VocabularyWord", "VocabularyWord")
+                        .WithMany("Progress")
+                        .HasForeignKey("VocabularyWordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("VocabularyWord");
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.Wallet", b =>
@@ -1332,6 +1793,11 @@ namespace Examify.Infrastructure.Migrations
                     b.Navigation("Transactions");
 
                     b.Navigation("Wallet");
+                });
+
+            modelBuilder.Entity("Examify.Core.Entities.VocabularyWord", b =>
+                {
+                    b.Navigation("Progress");
                 });
 
             modelBuilder.Entity("Examify.Core.Entities.Wallet", b =>
